@@ -1,0 +1,5 @@
+-keep class com.micplugin.** { *; }
+-keep interface com.micplugin.IAudioPlugin { *; }
+-keepclassmembers class * extends android.os.Binder { *; }
+-keep class * implements android.os.IInterface { *; }
+-keepattributes *Annotation*
