@@ -96,10 +96,11 @@ fun PluginBrowserScreen(
             containerColor    = StudioColors.Surface,
             contentColor      = StudioColors.Accent,
             indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = TabRowDefaults.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color    = StudioColors.Accent,
-                    height   = 2.dp,
+                Box(
+                    Modifier
+                        .tabIndicatorOffset(tabPositions[selectedTab])
+                        .height(2.dp)
+                        .background(StudioColors.Accent)
                 )
             },
         ) {

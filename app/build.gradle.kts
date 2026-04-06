@@ -119,6 +119,5 @@ dependencies {
     // Core
     implementation(libs.core.ktx)
 
-    // Root detection
-    implementation(libs.rootbeer)
+    // Root detection handled inline in VirtualMicService (no external dep needed)
 }

@@ -7,7 +7,6 @@ lifecycle = "2.7.0"
 oboe = "1.8.1"
 coroutines = "1.7.3"
 serialization = "1.6.2"
-rootbeer = "0.1.0"
 activity-compose = "1.8.2"
 navigation = "2.7.6"
 hilt-navigation = "1.1.0"
@@ -44,7 +43,7 @@ serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serializ
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 
 # Root Detection
-rootbeer = { group = "com.github.rootbeer", name = "rootbeer", version.ref = "rootbeer" }
+# Root detection is handled inline — no external dependency needed
 
 # Core
 core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.12.0" }

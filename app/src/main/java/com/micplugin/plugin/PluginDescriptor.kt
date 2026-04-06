@@ -7,10 +7,10 @@ enum class PluginFormat {
 
     val displayName: String get() = name
     val colorHex: Long get() = when (this) {
-        LV2  -> 0xFF00BFA5
-        CLAP -> 0xFF69F0AE
-        VST3 -> 0xFFAA00FF
-        APK  -> 0xFFFF6D00
+        LV2  -> 0xFF00BFA5L
+        CLAP -> 0xFF69F0AEL
+        VST3 -> 0xFFAA00FFL
+        APK  -> 0xFFFF6D00L
     }
 }
 
