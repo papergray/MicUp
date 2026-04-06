@@ -287,7 +287,6 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = StudioColors.Accent,
-                        focusedLabelColor  = StudioColors.Accent,
                     ),
                 )
             },

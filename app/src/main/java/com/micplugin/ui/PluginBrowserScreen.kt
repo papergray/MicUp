@@ -2,6 +2,7 @@ package com.micplugin.ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.unit.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,10 +81,7 @@ fun PluginBrowserScreen(
             colors        = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor   = StudioColors.Accent,
                 unfocusedBorderColor = StudioColors.Border,
-                focusedTextColor     = StudioColors.TextPrimary,
-                unfocusedTextColor   = StudioColors.TextPrimary,
                 cursorColor          = StudioColors.Accent,
-                containerColor       = StudioColors.Surface,
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,9 +94,12 @@ fun PluginBrowserScreen(
             containerColor    = StudioColors.Surface,
             contentColor      = StudioColors.Accent,
             indicator = { tabPositions ->
+                val pos = tabPositions[selectedTab]
                 Box(
                     Modifier
-                        .tabIndicatorOffset(tabPositions[selectedTab])
+                        .wrapContentSize(Alignment.BottomStart)
+                        .offset(x = pos.left)
+                        .width(pos.width)
                         .height(2.dp)
                         .background(StudioColors.Accent)
                 )
