@@ -91,12 +91,12 @@ bool AudioEngine::openStreams() {
     // ─ Input stream (microphone capture) ─────────────────────────────────────
     auto result = builder
         .setDirection(oboe::Direction::Input)
-        .setInputPreset(oboe::InputPreset::VoiceCommunication)
-        .setPerformanceMode(oboe::PerformanceMode::LowLatency)
-        .setSharingMode(oboe::SharingMode::Exclusive)
-        .setFormat(oboe::AudioFormat::Float)
-        .setChannelCount(1)
-        .setSampleRate(48000)
+        ->setInputPreset(oboe::InputPreset::VoiceCommunication)
+        ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
+        ->setSharingMode(oboe::SharingMode::Exclusive)
+        ->setFormat(oboe::AudioFormat::Float)
+        ->setChannelCount(1)
+        ->setSampleRate(48000)
         ->openStream(inputStream_);
 
     if (result != oboe::Result::OK) {

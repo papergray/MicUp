@@ -28,9 +28,9 @@ struct PluginInstance {
     virtual void cleanup() {}
 };
 
-class ClapPluginInstance;
-class Lv2PluginInstance;
-class Vst3PluginInstance;
+struct ClapPluginInstance;
+struct Lv2PluginInstance;
+struct Vst3PluginInstance;
 
 class PluginHost {
 public:

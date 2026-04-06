@@ -201,7 +201,7 @@ private:
 
     // Work buffer
     static constexpr int kMaxFrames = 1024;
-    float workBuf_[kMaxFrames]{};
+    // workBuf_ removed (unused)
 
     // ─ Gate state ─
     float gateEnv_  = 0.0f;
@@ -233,7 +233,7 @@ private:
     float pitchWindow_[kGrainSize]{};
     int   pitchWritePos_  = 0;
     float pitchReadFrac_  = 0.0f;
-    float pitchRateCache_ = 1.0f;
+    // pitchRateCache_ removed (unused)
 };
 
 } // namespace micplugin
