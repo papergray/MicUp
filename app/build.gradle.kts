@@ -9,6 +9,7 @@ plugins {
 android {
     namespace = "com.micplugin"
     compileSdk = 34
+    ndkVersion = "26.3.11579264"
 
     defaultConfig {
         applicationId = "com.micplugin"
@@ -62,6 +63,7 @@ android {
         compose = true
         aidl = true
         buildConfig = true
+        prefab = true          // Required: exposes Oboe CMake targets via Prefab AAR
     }
 
     composeOptions {

@@ -45,9 +45,8 @@ target_include_directories(micplugin_native PRIVATE
 )
 
 target_compile_options(micplugin_native PRIVATE
-    -O3
+    -O2
     -ffast-math
-    -fno-exceptions  # Keep RT-safe
     -DANDROID
     -Wall
     -Wno-unused-parameter
@@ -59,9 +58,4 @@ target_link_libraries(micplugin_native
     android
     dl        # dlopen for plugin loading
     OpenSLES  # OpenSL ES fallback
-)
-
-# Enable link-time optimization
-set_target_properties(micplugin_native PROPERTIES
-    INTERPROCEDURAL_OPTIMIZATION TRUE
 )
