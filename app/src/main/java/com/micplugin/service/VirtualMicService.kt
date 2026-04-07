@@ -39,19 +39,13 @@ class VirtualMicService @Inject constructor(
         private const val TAG = "VirtualMicService"
         private const val MAGISK_MODULE_ASSET = "micplugin_routing.zip"
 
-        /** Lightweight root detection without any external library. */
+        /** Lightweight root check — file-only, no blocking exec (safe for main thread). */
         fun isRooted(): Boolean {
             val suPaths = listOf(
                 "/system/bin/su", "/system/xbin/su", "/sbin/su",
                 "/su/bin/su", "/magisk/.core/bin/su", "/data/local/xbin/su",
             )
-            if (suPaths.any { File(it).exists() }) return true
-            return try {
-                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-                val out  = proc.inputStream.bufferedReader().readLine() ?: ""
-                proc.destroy()
-                out.contains("uid=0")
-            } catch (_: Exception) { false }
+            return suPaths.any { java.io.File(it).exists() }
         }
     }
 
