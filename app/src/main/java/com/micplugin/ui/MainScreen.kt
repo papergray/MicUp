@@ -30,6 +30,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
     val reverbState by vm.reverbState.collectAsState()
     val pitchState  by vm.pitchState.collectAsState()
     val bypass      by vm.masterBypass.collectAsState()
+    val monitoring  by vm.monitoringEnabled.collectAsState()
     val presets     by vm.presets.collectAsState()
     val selectedPreset by vm.selectedPreset.collectAsState()
     val pluginSlots by vm.pluginSlots.collectAsState()
@@ -139,35 +140,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clickable { vm.// ── Monitoring (hear yourself) ────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Text(
-                            "Monitor Output",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = StudioColors.TextPrimary,
-                        )
-                        Text(
-                            if (monitoring) "Hearing processed audio" else "Silent — audio still routed",
-                            fontSize = 10.sp,
-                            color = StudioColors.TextMuted,
-                        )
-                    }
-                    Switch(
-                        checked = monitoring,
-                        onCheckedChange = { vm.setMonitoring(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor   = Color.White,
-                            checkedTrackColor   = StudioColors.Accent,
-                            uncheckedTrackColor = StudioColors.Border,
-                        ),
-                    )
-                }
-                    setMasterBypass(!bypass) }
+                    .clickable { vm.setMasterBypass(!bypass) }
                     .background(if (bypass) StudioColors.MeterAmber.copy(alpha = 0.1f) else Color.Transparent,
                         RoundedCornerShape(6.dp))
                     .border(1.dp,
@@ -180,39 +153,46 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                 Text("MASTER BYPASS", style = MaterialTheme.typography.labelSmall,
                     color = if (bypass) StudioColors.MeterAmber else StudioColors.TextMuted,
                     letterSpacing = 1.sp)
-                Switch(checked = bypass, onCheckedChange = { vm.// ── Monitoring (hear yourself) ────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column {
-                        Text(
-                            "Monitor Output",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = StudioColors.TextPrimary,
-                        )
-                        Text(
-                            if (monitoring) "Hearing processed audio" else "Silent — audio still routed",
-                            fontSize = 10.sp,
-                            color = StudioColors.TextMuted,
-                        )
-                    }
-                    Switch(
-                        checked = monitoring,
-                        onCheckedChange = { vm.setMonitoring(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor   = Color.White,
-                            checkedTrackColor   = StudioColors.Accent,
-                            uncheckedTrackColor = StudioColors.Border,
-                        ),
-                    )
-                }
-                    setMasterBypass(it) },
+                Switch(checked = bypass, onCheckedChange = { vm.setMasterBypass(it) },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = StudioColors.MeterAmber,
                         checkedTrackColor = StudioColors.MeterAmber.copy(alpha = 0.3f),
                     ))
+            }
+        }
+
+
+        // Monitor output toggle (hear yourself)
+        if (status.isRunning) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        "Monitor Output",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StudioColors.TextPrimary,
+                        letterSpacing = 1.sp,
+                    )
+                    Text(
+                        if (monitoring) "Hearing yourself" else "Silent to you — still routed",
+                        fontSize = 10.sp,
+                        color = StudioColors.TextMuted,
+                    )
+                }
+                Switch(
+                    checked = monitoring,
+                    onCheckedChange = { vm.setMonitoring(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor   = Color.White,
+                        checkedTrackColor   = StudioColors.Accent,
+                        uncheckedTrackColor = StudioColors.Border,
+                    ),
+                )
             }
         }
 
