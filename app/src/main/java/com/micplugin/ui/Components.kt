@@ -82,7 +82,7 @@ private fun DrawScope.drawVuFill(levelDb: Float, peakDb: Float, invert: Boolean)
         val colors = when {
             levelDb > -3f  -> listOf(StudioColors.MeterGreen, StudioColors.MeterAmber, StudioColors.MeterRed)
             levelDb > -12f -> listOf(StudioColors.MeterGreen, StudioColors.MeterAmber)
-            else           -> listOf(StudioColors.MeterGreen)
+            else           -> listOf(StudioColors.MeterGreen, StudioColors.MeterGreen)
         }
         drawRect(
             brush = Brush.verticalGradient(
