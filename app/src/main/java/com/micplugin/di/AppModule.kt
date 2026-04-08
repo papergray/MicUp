@@ -6,6 +6,7 @@ import com.micplugin.audio.OboeEngine
 import com.micplugin.plugin.PluginChain
 import com.micplugin.plugin.PluginManager
 import com.micplugin.preset.PresetManager
+import com.micplugin.service.ShizukuManager
 import com.micplugin.service.VirtualMicService
 import dagger.Module
 import dagger.Provides
@@ -37,6 +38,11 @@ object AppModule {
         PresetManager(ctx)
 
     @Provides @Singleton
-    fun provideVirtualMicService(@ApplicationContext ctx: Context): VirtualMicService =
-        VirtualMicService(ctx)
+    fun provideShizukuManager(): ShizukuManager = ShizukuManager()
+
+    @Provides @Singleton
+    fun provideVirtualMicService(
+        @ApplicationContext ctx: Context,
+        shizukuManager: ShizukuManager,
+    ): VirtualMicService = VirtualMicService(ctx, shizukuManager)
 }

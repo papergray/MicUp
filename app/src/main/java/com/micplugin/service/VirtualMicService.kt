@@ -12,21 +12,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 enum class VirtualMicTier {
-    VOIP_STREAM, MEDIA_PROJECTION, ROOT_MAGISK;
+    VOIP_STREAM, MEDIA_PROJECTION, SHIZUKU_ADB, ROOT_MAGISK;
 
     val displayName: String get() = when (this) {
         VOIP_STREAM      -> "VoIP Compatible"
         MEDIA_PROJECTION -> "Android 14 Mode"
+        SHIZUKU_ADB      -> "Shizuku — ADB Level"
         ROOT_MAGISK      -> "Root Mode — System-Wide"
     }
     val description: String get() = when (this) {
-        VOIP_STREAM      -> "Processed audio routes through the VoIP stream. All conferencing apps (Meet, Teams, Discord, Zoom, WhatsApp) will capture from this stream automatically."
+        VOIP_STREAM      -> "Processed audio routes through VoIP stream. Works with Meet, Teams, Discord, Zoom."
         MEDIA_PROJECTION -> "Uses MediaProjection to intercept and re-inject audio. Set MicPlugin as virtual mic in Sound Settings."
-        ROOT_MAGISK      -> "Magisk module creates /dev/snd/virtual_mic via ALSA loopback. All apps see 'MicPlugin Virtual Mic' as a separate hardware device."
+        SHIZUKU_ADB      -> "Uses Shizuku (ADB-level) to load ALSA loopback and route processed audio. Apps see 'MicPlugin Virtual Mic' without full root."
+        ROOT_MAGISK      -> "Magisk module creates /dev/snd/virtual_mic via ALSA loopback. All apps see MicPlugin as a separate hardware device."
     }
     val badgeColorHex: Long get() = when (this) {
         VOIP_STREAM      -> 0xFF3DFCACL
         MEDIA_PROJECTION -> 0xFF7C5CFCL
+        SHIZUKU_ADB      -> 0xFF00B4D8L
         ROOT_MAGISK      -> 0xFFFFD700L
     }
 }
@@ -34,18 +37,18 @@ enum class VirtualMicTier {
 @Singleton
 class VirtualMicService @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val shizukuManager: ShizukuManager,
 ) {
     companion object {
         private const val TAG = "VirtualMicService"
         private const val MAGISK_MODULE_ASSET = "micplugin_routing.zip"
 
-        /** Lightweight root check — file-only, no blocking exec (safe for main thread). */
         fun isRooted(): Boolean {
             val suPaths = listOf(
                 "/system/bin/su", "/system/xbin/su", "/sbin/su",
                 "/su/bin/su", "/magisk/.core/bin/su", "/data/local/xbin/su",
             )
-            return suPaths.any { java.io.File(it).exists() }
+            return suPaths.any { File(it).exists() }
         }
     }
 
@@ -56,11 +59,28 @@ class VirtualMicService @Inject constructor(
 
     private fun detectAndSetBestTier() {
         _activeTier.value = when {
-            isRooted()                  -> VirtualMicTier.ROOT_MAGISK
-            Build.VERSION.SDK_INT >= 34 -> VirtualMicTier.MEDIA_PROJECTION
-            else                        -> VirtualMicTier.VOIP_STREAM
+            isRooted()                       -> VirtualMicTier.ROOT_MAGISK
+            shizukuManager.isReady           -> VirtualMicTier.SHIZUKU_ADB
+            Build.VERSION.SDK_INT >= 34      -> VirtualMicTier.MEDIA_PROJECTION
+            else                             -> VirtualMicTier.VOIP_STREAM
         }
         Log.i(TAG, "Virtual mic tier: ${_activeTier.value}")
+    }
+
+    /** Called after Shizuku permission is granted so we re-evaluate tier */
+    fun onShizukuReady() {
+        if (_activeTier.value == VirtualMicTier.VOIP_STREAM ||
+            _activeTier.value == VirtualMicTier.MEDIA_PROJECTION) {
+            _activeTier.value = VirtualMicTier.SHIZUKU_ADB
+            activateShizukuRouting()
+        }
+    }
+
+    private fun activateShizukuRouting() {
+        val loaded = shizukuManager.loadAlsaLoopback()
+        Log.i(TAG, "ALSA loopback loaded: $loaded")
+        shizukuManager.routeToLoopback()
+        shizukuManager.setAppOpsMicDefault(context.packageName)
     }
 
     fun getActiveTier(): VirtualMicTier = _activeTier.value
@@ -69,10 +89,28 @@ class VirtualMicService @Inject constructor(
     fun requestUpgrade(activity: Activity) {
         when (_activeTier.value) {
             VirtualMicTier.VOIP_STREAM -> {
-                if (Build.VERSION.SDK_INT >= 34)
-                    _activeTier.value = VirtualMicTier.MEDIA_PROJECTION
+                when {
+                    shizukuManager.state.value == ShizukuState.NEED_GRANT -> {
+                        shizukuManager.requestPermission()
+                    }
+                    shizukuManager.isReady -> {
+                        _activeTier.value = VirtualMicTier.SHIZUKU_ADB
+                        activateShizukuRouting()
+                    }
+                    Build.VERSION.SDK_INT >= 34 -> {
+                        _activeTier.value = VirtualMicTier.MEDIA_PROJECTION
+                    }
+                }
             }
             VirtualMicTier.MEDIA_PROJECTION -> {
+                if (shizukuManager.isReady) {
+                    _activeTier.value = VirtualMicTier.SHIZUKU_ADB
+                    activateShizukuRouting()
+                } else if (shizukuManager.state.value == ShizukuState.NEED_GRANT) {
+                    shizukuManager.requestPermission()
+                }
+            }
+            VirtualMicTier.SHIZUKU_ADB -> {
                 if (isRooted()) {
                     installMagiskModule(activity)
                     _activeTier.value = VirtualMicTier.ROOT_MAGISK

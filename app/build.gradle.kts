@@ -121,5 +121,7 @@ dependencies {
     // Core
     implementation(libs.core.ktx)
 
-    // Root detection handled inline in VirtualMicService (no external dep needed)
+    // Shizuku — ADB-level privileged API access (no root required)
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }

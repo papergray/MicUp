@@ -8,6 +8,8 @@ import com.micplugin.plugin.*
 import com.micplugin.preset.EffectState
 import com.micplugin.preset.Preset
 import com.micplugin.preset.PresetManager
+import com.micplugin.service.ShizukuManager
+import com.micplugin.service.ShizukuState
 import com.micplugin.service.VirtualMicService
 import com.micplugin.service.VirtualMicTier
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,6 +57,7 @@ class AudioViewModel @Inject constructor(
     private val pluginManager: PluginManager,
     private val presetManager: PresetManager,
     private val virtualMicService: VirtualMicService,
+    private val shizukuManager: ShizukuManager,
 ) : ViewModel() {
 
     val levels:      StateFlow<AudioLevels>    = audioEngine.levels
@@ -63,6 +66,7 @@ class AudioViewModel @Inject constructor(
     val discovered:  StateFlow<List<PluginDescriptor>> = pluginManager.discovered
     val presets:     StateFlow<List<Preset>>   = presetManager.presets
     val virtualMicTier: StateFlow<VirtualMicTier> = virtualMicService.activeTier
+    val shizukuState: StateFlow<ShizukuState> = shizukuManager.state
 
     private val _gateState   = MutableStateFlow(GateState())
     private val _eqState     = MutableStateFlow(EqState())
@@ -256,4 +260,6 @@ class AudioViewModel @Inject constructor(
     }
 
     fun rescan() { viewModelScope.launch { pluginManager.scanAll() } }
+
+    fun requestShizukuPermission() { shizukuManager.requestPermission() }
 }

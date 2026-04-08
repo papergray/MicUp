@@ -20,11 +20,19 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.micplugin.service.AudioProcessingService
+import com.micplugin.service.ShizukuManager
+import com.micplugin.service.ShizukuState
+import com.micplugin.service.VirtualMicService
 import com.micplugin.ui.*
 import dagger.hilt.android.AndroidEntryPoint
+import rikka.shizuku.Shizuku
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var shizukuManager: ShizukuManager
+    @Inject lateinit var virtualMicService: VirtualMicService
 
     private val permissionsToRequest = buildList {
         add(Manifest.permission.RECORD_AUDIO)
@@ -38,18 +46,24 @@ class MainActivity : ComponentActivity() {
     ) { results ->
         val allGranted = results.values.all { it }
         if (allGranted) startAudioService()
-        else requestBatteryOptimizationExemption()
+        requestBatteryOptimizationExemption()
+    }
+
+    // Shizuku permission result listener
+    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, result ->
+        if (result == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            virtualMicService.onShizukuReady()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         permissionLauncher.launch(permissionsToRequest)
         setContent {
             MicPluginTheme {
                 val navController = rememberNavController()
-                Scaffold(
-                    containerColor = StudioColors.Background,
-                ) { padding ->
+                Scaffold(containerColor = StudioColors.Background) { padding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -57,29 +71,26 @@ class MainActivity : ComponentActivity() {
                             .padding(padding),
                     ) {
                         NavHost(navController, startDestination = "main") {
-                            composable("main") {
-                                MainScreen(navController)
-                            }
-                            composable("plugin_browser") {
-                                PluginBrowserScreen(navController)
-                            }
+                            composable("main") { MainScreen(navController) }
+                            composable("plugin_browser") { PluginBrowserScreen(navController) }
                             composable(
                                 "plugin_editor/{slotId}",
-                                arguments = listOf(navArgument("slotId") {
-                                    type = NavType.StringType
-                                }),
+                                arguments = listOf(navArgument("slotId") { type = NavType.StringType }),
                             ) { back ->
                                 val slotId = back.arguments?.getString("slotId") ?: return@composable
                                 PluginEditorScreen(navController, slotId)
                             }
-                            composable("settings") {
-                                SettingsScreen(navController)
-                            }
+                            composable("settings") { SettingsScreen(navController) }
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        super.onDestroy()
     }
 
     private fun startAudioService() {
