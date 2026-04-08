@@ -5,6 +5,7 @@ import com.micplugin.audio.AudioEngine
 import com.micplugin.audio.OboeEngine
 import com.micplugin.plugin.PluginChain
 import com.micplugin.plugin.PluginManager
+import com.micplugin.plugin.PluginPathPrefs
 import com.micplugin.preset.PresetManager
 import com.micplugin.service.ShizukuManager
 import com.micplugin.service.VirtualMicService
@@ -30,8 +31,13 @@ object AppModule {
         AudioEngine(oboe, chain)
 
     @Provides @Singleton
-    fun providePluginManager(@ApplicationContext ctx: Context): PluginManager =
-        PluginManager(ctx)
+    fun providePluginPathPrefs(): PluginPathPrefs = PluginPathPrefs()
+
+    @Provides @Singleton
+    fun providePluginManager(
+        @ApplicationContext ctx: Context,
+        pathPrefs: PluginPathPrefs,
+    ): PluginManager = PluginManager(ctx, pathPrefs)
 
     @Provides @Singleton
     fun providePresetManager(@ApplicationContext ctx: Context): PresetManager =

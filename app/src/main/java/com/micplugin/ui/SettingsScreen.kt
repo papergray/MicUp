@@ -137,8 +137,8 @@ fun SettingsScreen(navController: NavController, vm: AudioViewModel = hiltViewMo
 
             // ── Plugins ───────────────────────────────────────────────────────
             SettingsSection("Plugins") {
+                SettingsActionRow("Manage Plugin Paths", Icons.Default.FolderOpen) { navController.navigate("plugin_paths") }
                 SettingsActionRow("Rescan Plugin Directories", Icons.Default.Refresh) { vm.rescan() }
-                SettingsInfoRow("Scan Paths", "files/plugins/{lv2,clap,vst3}")
             }
 
             // ── About ─────────────────────────────────────────────────────────

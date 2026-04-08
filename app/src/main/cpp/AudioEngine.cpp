@@ -197,6 +197,11 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     // Measure output level
     measureLevel(out, numFrames, params_.outputLevelDb);
 
+    // Silence output if monitoring (sidetone) is disabled
+    if (!params_.monitoringEnabled.load(std::memory_order_relaxed)) {
+        std::fill(out, out + numFrames, 0.0f);
+    }
+
     return oboe::DataCallbackResult::Continue;
 }
 
@@ -435,6 +440,9 @@ Java_com_micplugin_audio_OboeEngine_nativeSetParam(
         case 4: // Pitch
             if (paramId==0) p.pitchSemitones.store(value, std::memory_order_relaxed);
             else if (paramId==1) p.pitchEnabled.store(value > 0.5f, std::memory_order_relaxed);
+            break;
+        case 98: // Monitoring (hear yourself)
+            p.monitoringEnabled.store(value > 0.5f, std::memory_order_relaxed);
             break;
         case 99: // Master bypass
             p.masterBypass.store(value > 0.5f, std::memory_order_relaxed);

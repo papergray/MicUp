@@ -8,6 +8,7 @@ import com.micplugin.plugin.*
 import com.micplugin.preset.EffectState
 import com.micplugin.preset.Preset
 import com.micplugin.preset.PresetManager
+import com.micplugin.plugin.PluginPathPrefs
 import com.micplugin.service.ShizukuManager
 import com.micplugin.service.ShizukuState
 import com.micplugin.service.VirtualMicService
@@ -58,6 +59,7 @@ class AudioViewModel @Inject constructor(
     private val presetManager: PresetManager,
     private val virtualMicService: VirtualMicService,
     private val shizukuManager: ShizukuManager,
+    private val pluginPathPrefs: PluginPathPrefs,
 ) : ViewModel() {
 
     val levels:      StateFlow<AudioLevels>    = audioEngine.levels
@@ -262,4 +264,27 @@ class AudioViewModel @Inject constructor(
     fun rescan() { viewModelScope.launch { pluginManager.scanAll() } }
 
     fun requestShizukuPermission() { shizukuManager.requestPermission() }
+
+    val lv2Paths  = pluginPathPrefs.lv2Paths
+    val clapPaths = pluginPathPrefs.clapPaths
+    val vst3Paths = pluginPathPrefs.vst3Paths
+
+    fun addPluginPath(context: android.content.Context, format: com.micplugin.plugin.PluginFormat, path: String) {
+        pluginPathPrefs.addPath(context, format, path)
+    }
+    fun removePluginPath(context: android.content.Context, format: com.micplugin.plugin.PluginFormat, path: String) {
+        pluginPathPrefs.removePath(context, format, path)
+    }
+    fun allPluginPaths(context: android.content.Context, format: com.micplugin.plugin.PluginFormat) =
+        pluginPathPrefs.allPaths(context, format)
+
+
+    private val _monitoringEnabled = MutableStateFlow(true)
+    val monitoringEnabled: kotlinx.coroutines.flow.StateFlow<Boolean> = _monitoringEnabled
+
+    fun setMonitoring(enabled: Boolean) {
+        _monitoringEnabled.value = enabled
+        audioEngine.setMonitoring(enabled)
+    }
+
 }

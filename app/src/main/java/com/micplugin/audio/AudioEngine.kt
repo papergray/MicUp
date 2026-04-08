@@ -61,6 +61,7 @@ class AudioEngine @Inject constructor(
         _levels.value = AudioLevels()
     }
 
+    fun setMonitoring(enabled: Boolean) = oboe.setParam(98, 0, if (enabled) 1f else 0f)
     fun setMasterBypass(bypass: Boolean) = oboe.setParam(99, 0, if (bypass) 1f else 0f)
 
     // ── Built-in effect param setters (all RT-safe via atomic stores) ──────────

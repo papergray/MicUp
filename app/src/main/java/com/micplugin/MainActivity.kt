@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                                 PluginEditorScreen(navController, slotId)
                             }
                             composable("settings") { SettingsScreen(navController) }
+                            composable("plugin_paths") { PluginPathsScreen(navController) }
                         }
                     }
                 }
