@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-  <files-path name="plugins" path="plugins/"/>
-  <files-path name="presets" path="presets/"/>
-  <cache-path name="cache" path="."/>
+  <files-path name="plugins"  path="plugins/"/>
+  <files-path name="presets"  path="presets/"/>
+  <files-path name="crashes"  path="crashes/"/>
+  <cache-path name="cache"    path="."/>
 </paths>
