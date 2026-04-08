@@ -28,8 +28,13 @@ fun SettingsScreen(navController: NavController, vm: AudioViewModel = hiltViewMo
     val tier   by vm.virtualMicTier.collectAsState()
     val context = LocalContext.current
 
-    var crashReports by remember { mutableStateOf(CrashReporter.getCrashReports(context)) }
-    var viewingCrash by remember { mutableStateOf<File?>(null) }
+    var crashReports by remember { mutableStateOf<List<java.io.File>>(emptyList()) }
+    var viewingCrash by remember { mutableStateOf<java.io.File?>(null) }
+
+    // Reload every time screen is shown
+    LaunchedEffect(Unit) {
+        crashReports = CrashReporter.getCrashReports(context)
+    }
 
     Column(
         modifier = Modifier
