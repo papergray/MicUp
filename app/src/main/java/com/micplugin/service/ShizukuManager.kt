@@ -82,9 +82,9 @@ class ShizukuManager @Inject constructor() {
     fun exec(cmd: String): String? {
         if (_state.value != ShizukuState.READY) return null
         return try {
-            // Shizuku exposes a UserService IPC. For simple shell commands we
-            // use the adb-compatible Runtime exec through Shizuku's shell.
-            val process = Shizuku.newProcess(arrayOf("sh", "-c", cmd), null, null)
+            // Shizuku grants this process adb-level privileges after permission
+            // is approved — Runtime.exec runs with those elevated permissions.
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
             val out = process.inputStream.bufferedReader().readText()
             process.waitFor()
             Log.d(TAG, "exec[$cmd] => ${out.take(120)}")
