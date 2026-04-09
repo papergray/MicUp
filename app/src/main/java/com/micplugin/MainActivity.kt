@@ -19,11 +19,16 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.micplugin.plugin.PluginImporter
 import com.micplugin.service.AudioProcessingService
 import com.micplugin.service.ShizukuManager
 import com.micplugin.service.ShizukuState
 import com.micplugin.service.VirtualMicService
 import com.micplugin.ui.*
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.AndroidEntryPoint
 import rikka.shizuku.Shizuku
 import javax.inject.Inject
@@ -60,6 +65,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         permissionLauncher.launch(permissionsToRequest)
+        // Handle file opened from file manager
+        handleIncomingPlugin(intent)
         setContent {
             MicPluginTheme {
                 val navController = rememberNavController()
@@ -85,6 +92,37 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIncomingPlugin(intent)
+    }
+
+    private fun handleIncomingPlugin(intent: android.content.Intent?) {
+        val uri = intent?.data ?: return
+        if (intent.action != android.content.Intent.ACTION_VIEW) return
+        androidx.lifecycle.lifecycleScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                PluginImporter.importFromUri(this@MainActivity, uri)
+            }
+            if (result.success) {
+                // Trigger rescan so the new plugin shows up immediately
+                val vm = androidx.lifecycle.ViewModelProvider(this@MainActivity)[com.micplugin.ui.AudioViewModel::class.java]
+                vm.rescan()
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Plugin imported: ${result.pluginDescriptor?.name}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "Import failed: ${result.error}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
     }

@@ -43,6 +43,48 @@
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden">
+
+            <!-- Open plugin files from file managers / downloads -->
+            <!-- .clap files -->
+            <intent-filter android:label="Import CLAP Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\.clap" />
+            </intent-filter>
+            <intent-filter android:label="Import CLAP Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.clap" />
+            </intent-filter>
+            <!-- .lv2 files -->
+            <intent-filter android:label="Import LV2 Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\.lv2" />
+            </intent-filter>
+            <intent-filter android:label="Import LV2 Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.lv2" />
+            </intent-filter>
+            <!-- .so plugin files (VST3/LV2/CLAP native libs) -->
+            <intent-filter android:label="Import Native Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\.so" />
+            </intent-filter>
+            <intent-filter android:label="Import Native Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.so" />
+            </intent-filter>
+            <!-- generic octet-stream fallback (some file managers send this) -->
+            <intent-filter android:label="Import Plugin">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

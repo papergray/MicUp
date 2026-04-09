@@ -1,19 +1,20 @@
-name: Build MicPlugin APK
+name: Build & Release MicUp
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    tags:
+      - 'v*'          # trigger on v1.0, v1.2.3, etc.
+  workflow_dispatch:  # manual trigger from GitHub UI
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write  # needed to create GitHub Release
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -47,41 +48,47 @@ jobs:
           path: |
             app/.cxx
             ~/.cmake
-            /tmp/cmake-fetch-cache
           key: ${{ runner.os }}-cmake-${{ hashFiles('app/src/main/cpp/CMakeLists.txt') }}
           restore-keys: ${{ runner.os }}-cmake-
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.3.11579264
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/release.jks
 
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MicPlugin-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      - name: Build Release APK (unsigned)
-        run: ./gradlew assembleRelease --no-daemon
+      - name: Build & Sign Release APK
+        run: |
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/release.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.3.11579264
 
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: |
+          TAG=${GITHUB_REF_NAME:-manual}
+          mv app/build/outputs/apk/release/app-release.apk \
+             app/build/outputs/apk/release/MicUp-${TAG}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: MicPlugin-release-unsigned-${{ github.sha }}
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
-          retention-days: 30
+          name: MicUp ${{ github.ref_name }}
+          body: |
+            ## MicUp ${{ github.ref_name }}
+            
+            Signed release APK — install directly on Android.
+            
+            **What's new:** see commit history.
+          files: app/build/outputs/apk/release/MicUp-*.apk
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
 
       - name: Upload Build Logs on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: |
-            app/build/reports/
-            app/.cxx/
+          path: app/build/reports/
           retention-days: 7
