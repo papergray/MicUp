@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -104,8 +105,8 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingPlugin(intent: android.content.Intent?) {
         val uri = intent?.data ?: return
         if (intent.action != android.content.Intent.ACTION_VIEW) return
-        androidx.lifecycle.lifecycleScope.launch {
-            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        lifecycleScope.launch {
+            val result = withContext(kotlinx.coroutines.Dispatchers.IO) {
                 PluginImporter.importFromUri(this@MainActivity, uri)
             }
             if (result.success) {
