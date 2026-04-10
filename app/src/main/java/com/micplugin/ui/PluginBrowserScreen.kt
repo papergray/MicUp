@@ -4,7 +4,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.offset
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -140,7 +140,7 @@ fun PluginBrowserScreen(
                 contentPadding = PaddingValues(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(filtered, key = { it.id }) { desc ->
+                itemsIndexed(filtered, key = { idx, it -> "$idx:${it.id}" }) { _, desc ->
                     PluginBrowserCard(desc, onAdd = {
                         vm.addPlugin(desc)
                         navController.popBackStack()
