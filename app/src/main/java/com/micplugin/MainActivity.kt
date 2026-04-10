@@ -26,7 +26,6 @@ import com.micplugin.service.ShizukuManager
 import com.micplugin.service.ShizukuState
 import com.micplugin.service.VirtualMicService
 import com.micplugin.ui.*
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -106,7 +105,7 @@ class MainActivity : ComponentActivity() {
         val uri = intent?.data ?: return
         if (intent.action != android.content.Intent.ACTION_VIEW) return
         lifecycleScope.launch {
-            val result = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 PluginImporter.importFromUri(this@MainActivity, uri)
             }
             if (result.success) {
