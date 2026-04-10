@@ -104,22 +104,22 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingPlugin(intent: android.content.Intent?) {
         val uri = intent?.data ?: return
         if (intent.action != android.content.Intent.ACTION_VIEW) return
-        lifecycleScope.launch {
+        val activity = this
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.Main) {
             val result = withContext(Dispatchers.IO) {
-                PluginImporter.importFromUri(this@MainActivity, uri)
+                PluginImporter.importFromUri(activity, uri)
             }
             if (result.success) {
-                // Trigger rescan so the new plugin shows up immediately
-                val vm = androidx.lifecycle.ViewModelProvider(this@MainActivity)[com.micplugin.ui.AudioViewModel::class.java]
+                val vm = androidx.lifecycle.ViewModelProvider(activity)[com.micplugin.ui.AudioViewModel::class.java]
                 vm.rescan()
                 android.widget.Toast.makeText(
-                    this@MainActivity,
+                    activity,
                     "Plugin imported: ${result.pluginDescriptor?.name}",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             } else {
                 android.widget.Toast.makeText(
-                    this@MainActivity,
+                    activity,
                     "Import failed: ${result.error}",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
