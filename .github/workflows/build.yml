@@ -3,8 +3,13 @@ name: Build & Release MicUp
 on:
   push:
     tags:
-      - 'v*'          # trigger on v1.0, v1.2.3, etc.
-  workflow_dispatch:  # manual trigger from GitHub UI
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
 
 jobs:
   build:
@@ -67,23 +72,25 @@ jobs:
 
       - name: Rename APK
         run: |
-          TAG=${GITHUB_REF_NAME:-manual}
+          TAG=${{ github.event.inputs.tag || github.ref_name }}
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
           mv app/build/outputs/apk/release/app-release.apk \
              app/build/outputs/apk/release/MicUp-${TAG}.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: MicUp ${{ github.ref_name }}
+          name: MicUp ${{ env.RELEASE_TAG || github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
           body: |
-            ## MicUp ${{ github.ref_name }}
+            ## MicUp ${{ env.RELEASE_TAG || github.ref_name }}
             
             Signed release APK — install directly on Android.
             
             **What's new:** see commit history.
           files: app/build/outputs/apk/release/MicUp-*.apk
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(env.RELEASE_TAG || github.ref_name, '-beta') || contains(env.RELEASE_TAG || github.ref_name, '-alpha') }}
 
       - name: Upload Build Logs on Failure
         if: failure()
