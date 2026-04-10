@@ -98,13 +98,6 @@
             android:foregroundServiceType="microphone"
             android:stopWithTask="false" />
 
-        <!-- Virtual Mic Service -->
-        <service
-            android:name=".service.VirtualMicService"
-            android:exported="false"
-            android:foregroundServiceType="microphone"
-            android:stopWithTask="false" />
-
         <!-- File Provider for APK sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
