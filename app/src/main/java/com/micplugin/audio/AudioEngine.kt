@@ -89,6 +89,8 @@ class AudioEngine @Inject constructor(
     fun setPitchEnabled(on: Boolean)  = oboe.setParam(4, 1, if (on) 1f else 0f)
 
     // ── Plugin loading ────────────────────────────────────────────────────────
+    fun getPluginParamsJson(handle: Long): String = oboe.getPluginParams(handle)
+
     fun loadNativePlugin(soPath: String, format: PluginFormat): Long {
         val formatId = when (format) {
             PluginFormat.CLAP -> 0

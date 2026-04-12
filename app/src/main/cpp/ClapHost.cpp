@@ -163,3 +163,35 @@ std::shared_ptr<PluginInstance> ClapHost::load(const char* path, int32_t sampleR
 }
 
 } // namespace micplugin
+
+// ─── Query params from a loaded CLAP instance ───────────────────────────────
+// Returns JSON: [{"id":0,"name":"Gain","min":0.0,"max":1.0,"default":0.5}, ...]
+std::string ClapHost::getParams(const std::shared_ptr<PluginInstance>& inst) {
+    auto* ci = static_cast<ClapPluginInstance*>(inst.get());
+    if (!ci || !ci->paramsExt) return "[]";
+
+    uint32_t count = ci->paramsExt->count(ci->plugin);
+    if (count == 0) return "[]";
+
+    std::string json = "[";
+    for (uint32_t i = 0; i < count; i++) {
+        clap_param_info_t info{};
+        if (!ci->paramsExt->get_info(ci->plugin, i, &info)) continue;
+
+        double val = 0.0;
+        ci->paramsExt->get_value(ci->plugin, info.id, &val);
+
+        if (i > 0) json += ",";
+        json += "{";
+        json += "\"id\":" + std::to_string(info.id) + ",";
+        // Escape name
+        std::string name(info.name);
+        json += "\"name\":\"" + name + "\",";
+        json += "\"min\":"     + std::to_string(info.min_value) + ",";
+        json += "\"max\":"     + std::to_string(info.max_value) + ",";
+        json += "\"default\":" + std::to_string(val);
+        json += "}";
+    }
+    json += "]";
+    return json;
+}

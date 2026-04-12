@@ -46,6 +46,7 @@ public:
     void  setPluginParam(jlong handle, int32_t paramId, float value);
     void  setPluginEnabled(jlong handle, bool enabled);
     void  reorderPlugin(jlong handle, int32_t newPos);
+    std::shared_ptr<PluginInstance> findPlugin(jlong handle);
 
     static constexpr int64_t kWatchdogNs = 2'000'000LL; // 2ms
 

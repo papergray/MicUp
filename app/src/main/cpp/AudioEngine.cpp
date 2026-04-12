@@ -1,5 +1,8 @@
 #include "AudioEngine.h"
 #include "PluginHost.h"
+#include "ClapHost.h"
+#include "Vst3Bridge.h"
+#include "Lv2Host.h"
 
 #include <jni.h>
 #include <android/log.h>
@@ -498,3 +501,20 @@ Java_com_micplugin_audio_OboeEngine_nativeGetFramesPerBurst(JNIEnv*, jobject, jl
 }
 
 } // extern "C"
+
+JNIEXPORT jstring JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
+    JNIEnv* env, jobject, jlong /*engineHandle*/, jlong pluginHandle) {
+    if (!gPluginHost) return env->NewStringUTF("[]");
+    auto inst = gPluginHost->findPlugin(pluginHandle);
+    if (!inst) return env->NewStringUTF("[]");
+
+    std::string json;
+    switch (inst->format) {
+        case PluginFormat::CLAP: json = ClapHost::getParams(inst); break;
+        case PluginFormat::LV2:  json = Lv2Host::getParams(inst);  break;
+        case PluginFormat::VST3: json = Vst3Bridge::getParams(inst); break;
+        default: json = "[]"; break;
+    }
+    return env->NewStringUTF(json.c_str());
+}

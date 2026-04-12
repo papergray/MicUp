@@ -287,4 +287,8 @@ class AudioViewModel @Inject constructor(
         audioEngine.setMonitoring(enabled)
     }
 
+
+    fun getPluginParamsJson(nativeHandle: Long): String =
+        audioEngine.getPluginParamsJson(nativeHandle)
+
 }

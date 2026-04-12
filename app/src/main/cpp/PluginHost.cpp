@@ -123,3 +123,12 @@ void PluginHost::reorderPlugin(jlong handle, int32_t newPos) {
 }
 
 } // namespace micplugin
+
+namespace micplugin {
+std::shared_ptr<PluginInstance> PluginHost::findPlugin(jlong handle) {
+    std::lock_guard<std::mutex> lock(uiMutex_);
+    for (auto& p : pendingChain_)
+        if (p->handle == handle) return p;
+    return nullptr;
+}
+} // namespace micplugin

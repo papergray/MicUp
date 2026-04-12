@@ -82,14 +82,9 @@ jobs:
         with:
           name: MicUp ${{ env.RELEASE_TAG || github.ref_name }}
           tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
-          body: |
-            ## MicUp ${{ env.RELEASE_TAG || github.ref_name }}
-            
-            Signed release APK — install directly on Android.
-            
-            **What's new:** see commit history.
+          body: ''
           files: app/build/outputs/apk/release/MicUp-*.apk
-          draft: false
+          draft: true
           prerelease: ${{ contains(env.RELEASE_TAG || github.ref_name, '-beta') || contains(env.RELEASE_TAG || github.ref_name, '-alpha') }}
 
       - name: Upload Build Logs on Failure

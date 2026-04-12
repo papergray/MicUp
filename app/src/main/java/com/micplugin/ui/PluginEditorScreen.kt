@@ -7,6 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -31,6 +34,29 @@ fun PluginEditorScreen(
     if (slot == null) {
         navController.popBackStack()
         return
+    }
+
+    // Load live params from native plugin if descriptor has none
+    var liveParams by remember { mutableStateOf(slot.descriptor.params) }
+    LaunchedEffect(slot.nativeHandle) {
+        if (slot.descriptor.params.isEmpty() && slot.nativeHandle != 0L) {
+            val json = withContext(Dispatchers.IO) {
+                vm.getPluginParamsJson(slot.nativeHandle)
+            }
+            try {
+                val arr = Json.parseToJsonElement(json).jsonArray
+                liveParams = arr.map { el ->
+                    val o = el.jsonObject
+                    PluginParam(
+                        id      = o["id"]?.jsonPrimitive?.int ?: 0,
+                        name    = o["name"]?.jsonPrimitive?.content ?: "Param",
+                        min     = o["min"]?.jsonPrimitive?.float ?: 0f,
+                        max     = o["max"]?.jsonPrimitive?.float ?: 1f,
+                        default = o["default"]?.jsonPrimitive?.float ?: 0f,
+                    )
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     Column(
@@ -86,13 +112,18 @@ fun PluginEditorScreen(
         }
 
         // ── Parameter list ────────────────────────────────────────────────────
-        if (slot.descriptor.params.isEmpty()) {
+        if (liveParams.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Tune, null,
                         tint = StudioColors.TextMuted, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text("No parameters exposed by this plugin.",
+                    Text(
+                    when (slot.descriptor.format.name) {
+                        "VST3" -> "VST3 parameter control not yet supported."
+                        "LV2"  -> "LV2 parameters require .ttl manifest — generic controls shown if available."
+                        else   -> "No parameters exposed by this plugin."
+                    },
                         color = StudioColors.TextMuted)
                 }
             }
@@ -104,7 +135,7 @@ fun PluginEditorScreen(
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                slot.descriptor.params.forEach { param ->
+                liveParams.forEach { param ->
                     PluginParamControl(
                         param   = param,
                         value   = slot.paramValues[param.id] ?: param.default,

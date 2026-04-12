@@ -25,6 +25,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(lv2_headers)
 
+FetchContent_Declare(
+    vst3sdk
+    GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
+    GIT_TAG        v3.7.12_build_19
+    GIT_SHALLOW    TRUE
+    GIT_PROGRESS   FALSE
+    GIT_SUBMODULES "pluginterfaces" "base"
+)
+FetchContent_MakeAvailable(vst3sdk)
+
+
 # ─── Oboe via prefab ──────────────────────────────────────────────────────────
 find_package(oboe REQUIRED CONFIG)
 
@@ -35,13 +46,20 @@ add_library(micplugin_native SHARED
     ClapHost.cpp
     Lv2Host.cpp
     Vst3Bridge.cpp
+    TtlParser.cpp
 )
 
 target_include_directories(micplugin_native PRIVATE
     ${clap_SOURCE_DIR}/include
     ${lv2_headers_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${vst3sdk_SOURCE_DIR}
+    ${vst3sdk_SOURCE_DIR}/pluginterfaces
+    ${vst3sdk_SOURCE_DIR}/base/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${vst3sdk_SOURCE_DIR}
+    ${vst3sdk_SOURCE_DIR}/pluginterfaces
+    ${vst3sdk_SOURCE_DIR}/base
 )
 
 target_compile_options(micplugin_native PRIVATE
