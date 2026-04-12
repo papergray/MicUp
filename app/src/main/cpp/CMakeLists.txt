@@ -28,7 +28,7 @@ FetchContent_MakeAvailable(lv2_headers)
 FetchContent_Declare(
     vst3sdk
     GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
-    GIT_TAG        v3.7.12_build_19
+    GIT_TAG        main
     GIT_SHALLOW    TRUE
     GIT_PROGRESS   FALSE
     GIT_SUBMODULES "pluginterfaces" "base"
