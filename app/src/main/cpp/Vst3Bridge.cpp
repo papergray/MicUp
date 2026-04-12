@@ -113,7 +113,7 @@ std::shared_ptr<PluginInstance> Vst3Bridge::load(const char* soPath, int32_t sam
 
     // Create component
     IComponent* comp = nullptr;
-    if (factory->createInstance(ci.cid, IComponent::iid, (void**)&comp) != kResultOk || !comp) {
+    if (factory->createInstance((const char8*)ci.cid, (const char8*)IComponent::iid, (void**)&comp) != kResultOk || !comp) {
         LOGE("createInstance failed"); dlclose(dlib); return nullptr;
     }
     if (comp->initialize(&gHostApp) != kResultOk) {
@@ -143,7 +143,7 @@ std::shared_ptr<PluginInstance> Vst3Bridge::load(const char* soPath, int32_t sam
         // Try separate controller class
         TUID ctrlCid;
         if (comp->getControllerClassId(ctrlCid) == kResultOk) {
-            factory->createInstance(ctrlCid, IEditController::iid, (void**)&ctrl);
+            factory->createInstance((const char8*)ctrlCid, (const char8*)IEditController::iid, (void**)&ctrl);
             if (ctrl) ctrl->initialize(&gHostApp);
         }
     }

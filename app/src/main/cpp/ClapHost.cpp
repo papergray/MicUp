@@ -162,8 +162,6 @@ std::shared_ptr<PluginInstance> ClapHost::load(const char* path, int32_t sampleR
     return instance;
 }
 
-} // namespace micplugin
-
 // ─── Query params from a loaded CLAP instance ───────────────────────────────
 // Returns JSON: [{"id":0,"name":"Gain","min":0.0,"max":1.0,"default":0.5}, ...]
 std::string ClapHost::getParams(const std::shared_ptr<PluginInstance>& inst) {
@@ -195,3 +193,5 @@ std::string ClapHost::getParams(const std::shared_ptr<PluginInstance>& inst) {
     json += "]";
     return json;
 }
+
+} // namespace micplugin
