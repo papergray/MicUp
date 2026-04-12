@@ -25,15 +25,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(lv2_headers)
 
+# VST3 pluginterfaces headers only (no submodules needed)
 FetchContent_Declare(
-    vst3sdk
-    GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
-    GIT_TAG        main
+    vst3_pluginterfaces
+    GIT_REPOSITORY https://github.com/steinbergmedia/vst3_pluginterfaces.git
+    GIT_TAG        v3.7.12
     GIT_SHALLOW    TRUE
     GIT_PROGRESS   FALSE
-    GIT_SUBMODULES "pluginterfaces" "base"
 )
-FetchContent_MakeAvailable(vst3sdk)
+FetchContent_MakeAvailable(vst3_pluginterfaces)
+
+# VST3 base (needed for FUnknown etc)
+FetchContent_Declare(
+    vst3_base
+    GIT_REPOSITORY https://github.com/steinbergmedia/vst3_base.git
+    GIT_TAG        v3.7.12
+    GIT_SHALLOW    TRUE
+    GIT_PROGRESS   FALSE
+)
+FetchContent_MakeAvailable(vst3_base)
 
 
 # ─── Oboe via prefab ──────────────────────────────────────────────────────────
@@ -53,13 +63,11 @@ target_include_directories(micplugin_native PRIVATE
     ${clap_SOURCE_DIR}/include
     ${lv2_headers_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${vst3sdk_SOURCE_DIR}
-    ${vst3sdk_SOURCE_DIR}/pluginterfaces
-    ${vst3sdk_SOURCE_DIR}/base/include
+    ${vst3_pluginterfaces_SOURCE_DIR}
+    ${vst3_base_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${vst3sdk_SOURCE_DIR}
-    ${vst3sdk_SOURCE_DIR}/pluginterfaces
-    ${vst3sdk_SOURCE_DIR}/base
+    ${vst3_pluginterfaces_SOURCE_DIR}
+    ${vst3_base_SOURCE_DIR}
 )
 
 target_compile_options(micplugin_native PRIVATE

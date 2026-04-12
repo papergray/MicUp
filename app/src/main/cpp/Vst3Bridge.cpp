@@ -7,10 +7,10 @@
 #include <sstream>
 
 // Steinberg VST3 SDK headers (via FetchContent)
-#include "pluginterfaces/vst/ivstaudioprocessor.h"
-#include "pluginterfaces/vst/ivsteditcontroller.h"
-#include "pluginterfaces/base/ipluginbase.h"
-#include "pluginterfaces/vst/ivstcomponent.h"
+#include "vst/ivstaudioprocessor.h"
+#include "vst/ivsteditcontroller.h"
+#include "base/ipluginbase.h"
+#include "vst/ivstcomponent.h"
 
 #define LOG_TAG "MicPlugin.VST3"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
@@ -18,6 +18,7 @@
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
+
 
 namespace micplugin {
 
