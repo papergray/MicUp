@@ -39,6 +39,7 @@ add_library(micplugin_native SHARED
     Lv2Host.cpp
     Vst3Bridge.cpp
     TtlParser.cpp
+    vst3/vst3_iids.cpp
 )
 
 target_include_directories(micplugin_native PRIVATE
