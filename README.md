@@ -24,15 +24,15 @@ No PC required. No monthly subscription.
 
 ## Features
 
-- 🎚️ **Built-in DSP chain** — Noise Gate, 10-band EQ, Compressor, Reverb, Pitch Shifter
-- 🔌 **Plugin support** — Load LV2, CLAP, and VST3 native plugins (`.so`, `.clap`, `.lv2`)
-- 📂 **Open plugin files** — Tap a plugin file in your file manager to import it directly
-- 🔇 **Monitor toggle** — Hear your processed audio through headphones, or silence it while still routing to other apps
-- 🛡️ **Shizuku support** — ADB-level ALSA loopback routing without full root
-- 🧩 **Three virtual mic tiers** — VoIP stream (no root), Shizuku (ADB), or Magisk (full root)
-- 📊 **Live VU meters** — Input, output, and gain reduction metering
-- 💾 **Preset system** — Save and load your effect configurations
-- 🐛 **Built-in crash reporter** — Crash logs auto-shared for easy bug reporting
+-  **Built-in DSP chain** — Noise Gate, 10-band EQ, Compressor, Reverb, Pitch Shifter
+-  **Plugin support** — Load LV2, CLAP, and VST3 native plugins (`.so`, `.clap`, `.lv2`)
+-  **Open plugin files** — Tap a plugin file in your file manager to import it directly
+-  **Monitor toggle** — Hear your processed audio through headphones, or silence it while still routing to other apps
+-  **Shizuku support** — ADB-level ALSA loopback routing without full root
+-  **Three virtual mic tiers** — VoIP stream (no root), Shizuku (ADB), or Magisk (full root)
+-  **Live VU meters** — Input, output, and gain reduction metering
+-  **Preset system** — Save and load your effect configurations
+-  **Built-in crash reporter** — Crash logs auto-shared for easy bug reporting
 
 ---
 
