@@ -1,8 +1,6 @@
 #include "TtlParser.h"
 #include <fstream>
 #include <sstream>
-#include <algorithm>
-#include <cctype>
 #include <android/log.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "MicPlugin.TTL", __VA_ARGS__)
@@ -18,9 +16,9 @@ std::string TtlParser::trim(const std::string& s) {
 
 float TtlParser::parseFloat(const std::string& s, float fallback) {
     try {
-        // Strip trailing punctuation like , or ;
         std::string clean = s;
-        while (!clean.empty() && (clean.back() == ',' || clean.back() == ';' || clean.back() == ' '))
+        while (!clean.empty() && (clean.back() == ',' || clean.back() == ';' ||
+                                   clean.back() == ' ' || clean.back() == '.'))
             clean.pop_back();
         return std::stof(clean);
     } catch (...) { return fallback; }
@@ -28,88 +26,86 @@ float TtlParser::parseFloat(const std::string& s, float fallback) {
 
 std::vector<LV2PortInfo> TtlParser::parsePorts(const std::string& ttl) {
     std::vector<LV2PortInfo> ports;
-    LV2PortInfo current;
-    bool inPort = false;
 
     std::istringstream ss(ttl);
     std::string line;
+
+    bool inPort    = false;
+    LV2PortInfo cur{};
 
     while (std::getline(ss, line)) {
         std::string t = trim(line);
         if (t.empty() || t[0] == '#') continue;
 
-        // Start of a port block
-        if (t.find("lv2:Port") != std::string::npos ||
-            t.find("lv2:ControlPort") != std::string::npos ||
-            t.find("lv2:InputPort") != std::string::npos ||
-            t.find("lv2:OutputPort") != std::string::npos) {
-            if (inPort && current.index >= 0) ports.push_back(current);
-            current = LV2PortInfo{};
-            inPort  = true;
+        // Port block starts with '[' alone (possibly with trailing comma before)
+        if (t == "[") {
+            if (inPort && cur.index >= 0) ports.push_back(cur);
+            cur   = LV2PortInfo{};
+            inPort = true;
+            continue;
+        }
+
+        // Port block ends with ']' (possibly '] ,' or '] .')
+        if (!t.empty() && t[0] == ']') {
+            if (inPort && cur.index >= 0) ports.push_back(cur);
+            cur    = LV2PortInfo{};
+            inPort = false;
+            continue;
         }
 
         if (!inPort) continue;
 
-        // Port index
-        auto extractVal = [&](const std::string& key) -> std::string {
-            size_t p = t.find(key);
+        // Type line: "a lv2:InputPort , lv2:ControlPort ;"
+        if (t.find("a lv2:") == 0 || t.find("a  lv2:") == 0) {
+            if (t.find("lv2:ControlPort") != std::string::npos) cur.isControl = true;
+            if (t.find("lv2:InputPort")   != std::string::npos) cur.isInput   = true;
+            // AudioPort → not control
+            if (t.find("lv2:AudioPort")   != std::string::npos) cur.isControl = false;
+            continue;
+        }
+
+        // Extract value after the predicate
+        auto extractVal = [&](const std::string& pred) -> std::string {
+            size_t p = t.find(pred);
             if (p == std::string::npos) return "";
-            std::string rest = trim(t.substr(p + key.size()));
-            // Remove trailing ; or ,
-            while (!rest.empty() && (rest.back() == ';' || rest.back() == ',' || rest.back() == ' '))
+            std::string rest = trim(t.substr(p + pred.size()));
+            while (!rest.empty() && (rest.back() == ';' || rest.back() == ',' ||
+                                      rest.back() == ' ' || rest.back() == '.'))
                 rest.pop_back();
-            return rest;
+            return trim(rest);
         };
 
         if (t.find("lv2:index") != std::string::npos) {
             auto v = extractVal("lv2:index");
-            try { current.index = std::stoi(v); } catch (...) {}
+            try { cur.index = std::stoi(v); } catch (...) {}
         }
-        if (t.find("lv2:name") != std::string::npos ||
-            t.find("lv2:symbol") != std::string::npos) {
+        if (t.find("lv2:name") != std::string::npos && cur.name.empty()) {
             auto v = extractVal("lv2:name");
-            if (v.empty()) v = extractVal("lv2:symbol");
-            // Strip surrounding quotes
             if (v.size() >= 2 && v.front() == '"') v = v.substr(1, v.size() - 2);
-            if (!v.empty() && current.name.empty()) current.name = v;
+            cur.name = v;
         }
         if (t.find("lv2:minimum") != std::string::npos)
-            current.minimum = parseFloat(extractVal("lv2:minimum"), 0.f);
+            cur.minimum    = parseFloat(extractVal("lv2:minimum"), 0.f);
         if (t.find("lv2:maximum") != std::string::npos)
-            current.maximum = parseFloat(extractVal("lv2:maximum"), 1.f);
+            cur.maximum    = parseFloat(extractVal("lv2:maximum"), 1.f);
         if (t.find("lv2:default") != std::string::npos)
-            current.defaultVal = parseFloat(extractVal("lv2:default"), 0.f);
-
-        if (t.find("lv2:ControlPort") != std::string::npos) current.isControl = true;
-        if (t.find("lv2:InputPort")   != std::string::npos) current.isInput   = true;
-
-        // Block end
-        if (t.find("] ;") != std::string::npos || t == "]" || t == "] .") {
-            if (inPort && current.index >= 0) {
-                ports.push_back(current);
-                current  = LV2PortInfo{};
-                inPort   = false;
-            }
-        }
+            cur.defaultVal = parseFloat(extractVal("lv2:default"), 0.f);
     }
-    if (inPort && current.index >= 0) ports.push_back(current);
 
-    LOGI("TTL parse: %zu ports found", ports.size());
+    LOGI("TTL parse: %zu ports", ports.size());
     return ports;
 }
 
 std::vector<LV2PortInfo> TtlParser::parseFromSo(const std::string& soPath) {
-    // Try <name>.ttl, manifest.ttl in same dir
-    auto dir = soPath.substr(0, soPath.find_last_of("/\\") + 1);
+    auto dir  = soPath.substr(0, soPath.find_last_of("/\\") + 1);
     auto base = soPath.substr(soPath.find_last_of("/\\") + 1);
-    // Remove extension
     auto stem = base.substr(0, base.find_last_of('.'));
 
     std::vector<std::string> candidates = {
         dir + stem + ".ttl",
         dir + "manifest.ttl",
-        dir + stem + "/" + "manifest.ttl",
         dir + stem + ".lv2/manifest.ttl",
+        dir + "../manifest.ttl",
     };
 
     for (auto& path : candidates) {
