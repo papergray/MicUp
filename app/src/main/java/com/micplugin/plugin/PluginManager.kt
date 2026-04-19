@@ -52,7 +52,7 @@ class PluginManager @Inject constructor(
                         name   = f.nameWithoutExtension.replace("_", " "),
                         format = PluginFormat.LV2,
                         path   = f.absolutePath,
-                        params = emptyList(),
+                        params = parseLv2TtlParams(f.absolutePath),
                     )
                 }
         }
@@ -130,4 +130,52 @@ class PluginManager @Inject constructor(
             emptyList()
         }
     }
+
+    private fun parseLv2TtlParams(soPath: String): List<PluginParam> {
+        val dir = java.io.File(soPath).parent ?: return emptyList()
+        val stem = java.io.File(soPath).nameWithoutExtension
+        val ttl = listOf("$dir/$stem.ttl", "$dir/manifest.ttl")
+            .mapNotNull { p -> java.io.File(p).takeIf { it.exists() }?.readText() }
+            .firstOrNull() ?: return emptyList()
+
+        val params = mutableListOf<PluginParam>()
+        var inPort = false
+        var idx = -1; var nm = ""; var mn = 0f; var mx = 1f; var df = 0f
+        var isCtrl = false; var isInput = false
+
+        for (line in ttl.lines()) {
+            val t = line.trim()
+            if (t == "[") {
+                if (inPort && idx >= 0 && isCtrl && isInput)
+                    params += PluginParam(idx, nm.ifEmpty { "p$idx" }, mn, mx, df)
+                inPort = true; idx = -1; nm = ""; mn = 0f; mx = 1f; df = 0f
+                isCtrl = false; isInput = false; continue
+            }
+            if (t.startsWith("]")) {
+                if (inPort && idx >= 0 && isCtrl && isInput)
+                    params += PluginParam(idx, nm.ifEmpty { "p$idx" }, mn, mx, df)
+                inPort = false; continue
+            }
+            if (!inPort) continue
+            if (t.contains("lv2:ControlPort")) isCtrl = true
+            if (t.contains("lv2:InputPort")) isInput = true
+            if (t.contains("lv2:AudioPort")) isCtrl = false
+            t.split("lv2:index").getOrNull(1)?.trim()?.split(Regex("\\s")
+                )?.firstOrNull()?.trimEnd(';',',','.')?.toIntOrNull()?.let { idx = it }
+            if (nm.isEmpty() && t.contains("lv2:name")) {
+                val q = t.indexOf('"'); val q2 = t.lastIndexOf('"')
+                if (q >= 0 && q2 > q) nm = t.substring(q + 1, q2)
+            }
+            t.split("lv2:minimum").getOrNull(1)?.trim()?.split(Regex("\\s")
+                )?.firstOrNull()?.trimEnd(';',',','.')?.toFloatOrNull()?.let { mn = it }
+            t.split("lv2:maximum").getOrNull(1)?.trim()?.split(Regex("\\s")
+                )?.firstOrNull()?.trimEnd(';',',','.')?.toFloatOrNull()?.let { mx = it }
+            t.split("lv2:default").getOrNull(1)?.trim()?.split(Regex("\\s")
+                )?.firstOrNull()?.trimEnd(';',',','.')?.toFloatOrNull()?.let { df = it }
+        }
+        Log.i(TAG, "TTL scan: ${params.size} params from $soPath")
+        return params
+    }
+
+
 }

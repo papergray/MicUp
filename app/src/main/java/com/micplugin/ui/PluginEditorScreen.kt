@@ -39,7 +39,7 @@ fun PluginEditorScreen(
     // Load live params from native plugin if descriptor has none
     var liveParams by remember { mutableStateOf(slot.descriptor.params) }
     LaunchedEffect(slot.nativeHandle) {
-        if (slot.descriptor.params.isEmpty() && slot.nativeHandle != 0L) {
+        if (slot.nativeHandle != 0L) {
             val json = withContext(Dispatchers.IO) {
                 vm.getPluginParamsJson(slot.nativeHandle)
             }
