@@ -4,8 +4,9 @@ import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
         permissionLauncher.launch(permissionsToRequest)
         // Handle file opened from file manager
         handleIncomingPlugin(intent)
+        requestAllFilesPermission()
         setContent {
             MicPluginTheme {
                 val navController = rememberNavController()
@@ -122,6 +124,23 @@ class MainActivity : ComponentActivity() {
                     "Import failed: ${result.error}",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
+            }
+        }
+    }
+
+
+    private fun requestAllFilesPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = android.content.Intent(
+                        Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    startActivity(android.content.Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                }
             }
         }
     }
