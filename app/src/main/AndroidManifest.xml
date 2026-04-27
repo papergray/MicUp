@@ -2,30 +2,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Audio Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- Service / Wake / Notifications -->
+    <uses-permission android:name="android.permission.ACCESS_SUPERUSER" />
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Storage (plugin scanning) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
-    <!-- Network (plugin marketplace) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Battery optimization exclusion -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Feature requirements -->
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
 
     <application
@@ -36,6 +32,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MicPlugin"
+        android:extractNativeLibs="true"
+        android:debuggable="true"
         tools:targetApi="34">
 
         <activity
@@ -44,8 +42,6 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|keyboardHidden">
 
-            <!-- Open plugin files from file managers / downloads -->
-            <!-- .clap files -->
             <intent-filter android:label="Import CLAP Plugin">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -56,7 +52,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.clap" />
             </intent-filter>
-            <!-- .lv2 files -->
             <intent-filter android:label="Import LV2 Plugin">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -67,7 +62,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.lv2" />
             </intent-filter>
-            <!-- .so plugin files (VST3/LV2/CLAP native libs) -->
             <intent-filter android:label="Import Native Plugin">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -78,7 +72,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\.so" />
             </intent-filter>
-            <!-- generic octet-stream fallback (some file managers send this) -->
             <intent-filter android:label="Import Plugin">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -91,14 +84,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Audio Processing Foreground Service -->
         <service
             android:name=".service.AudioProcessingService"
             android:exported="false"
             android:foregroundServiceType="microphone"
             android:stopWithTask="false" />
 
-        <!-- File Provider for APK sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -110,7 +101,6 @@
         </provider>
 
 
-        <!-- Shizuku provider — required for permission handshake -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
