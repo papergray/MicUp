@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+// Adding the missing import that likely caused the build failure
+import com.micplugin.service.ShizukuManager.ShizukuState
 
 enum class VirtualMicTier {
     VOIP_STREAM, MEDIA_PROJECTION, SHIZUKU_ADB, ROOT_MAGISK;
