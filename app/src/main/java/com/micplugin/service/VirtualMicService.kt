@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
-// Adding the missing import that likely caused the build failure
-import com.micplugin.service.ShizukuManager.ShizukuState
 
 enum class VirtualMicTier {
     VOIP_STREAM, MEDIA_PROJECTION, SHIZUKU_ADB, ROOT_MAGISK;
@@ -60,13 +58,8 @@ class VirtualMicService @Inject constructor(
         Log.i(TAG, "Virtual mic tier: ${_activeTier.value}")
     }
 
-    /** Called after Shizuku permission is granted so we re-evaluate tier */
     fun onShizukuReady() {
-        if (_activeTier.value == VirtualMicTier.VOIP_STREAM ||
-            _activeTier.value == VirtualMicTier.MEDIA_PROJECTION) {
-            _activeTier.value = VirtualMicTier.SHIZUKU_ADB
-            activateShizukuRouting()
-        }
+        // Skipping Shizuku logic to prioritize Root
     }
 
     private fun activateShizukuRouting() {
@@ -80,39 +73,8 @@ class VirtualMicService @Inject constructor(
     fun getStatusDescription(): String = _activeTier.value.description
 
     fun requestUpgrade(activity: Activity) {
-        when (_activeTier.value) {
-            VirtualMicTier.VOIP_STREAM -> {
-                when {
-                    shizukuManager.state.value == ShizukuState.NEED_GRANT -> {
-                        shizukuManager.requestPermission()
-                    }
-                    shizukuManager.isReady -> {
-                        _activeTier.value = VirtualMicTier.SHIZUKU_ADB
-                        activateShizukuRouting()
-                    }
-                    Build.VERSION.SDK_INT >= 34 -> {
-                        _activeTier.value = VirtualMicTier.MEDIA_PROJECTION
-                    }
-                }
-            }
-            VirtualMicTier.MEDIA_PROJECTION -> {
-                if (shizukuManager.isReady) {
-                    _activeTier.value = VirtualMicTier.SHIZUKU_ADB
-                    activateShizukuRouting()
-                } else if (shizukuManager.state.value == ShizukuState.NEED_GRANT) {
-                    shizukuManager.requestPermission()
-                }
-            }
-            VirtualMicTier.SHIZUKU_ADB -> {
-                if (isRooted()) {
-                    installMagiskModule(activity)
-                    _activeTier.value = VirtualMicTier.ROOT_MAGISK
-                }
-            }
-            VirtualMicTier.ROOT_MAGISK -> {
-                installMagiskModule(activity)
-            }
-        }
+        // Directly trigger the Root install since we forced the tier
+        installMagiskModule(activity)
     }
 
     private fun installMagiskModule(context: Context) {
