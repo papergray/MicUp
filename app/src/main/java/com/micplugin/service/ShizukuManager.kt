@@ -81,9 +81,40 @@ class ShizukuManager @Inject constructor() {
      */
     fun exec(cmd: String): String? {
         if (_state.value != ShizukuState.READY) return null
+        return execInternal(cmd)
+    }
+
+    /** Exec with auto su-fallback — tries Shizuku first, then root su paths */
+    fun execWithFallback(cmd: String): String? {
+        if (_state.value == ShizukuState.READY) {
+            execInternal(cmd)?.let { return it }
+        }
+        // Fallback: try known su binary paths
+        val suPaths = listOf(
+            "/data/adb/magisk/busybox",
+            "/data/adb/ksu/bin/su",
+            "/system/xbin/su",
+            "/system/bin/su",
+            "su",
+        )
+        for (su in suPaths) {
+            try {
+                val args = if (su.contains("busybox")) arrayOf(su, "sh", "-c", cmd)
+                           else arrayOf(su, "-c", cmd)
+                val p = Runtime.getRuntime().exec(args)
+                val out = p.inputStream.bufferedReader().readText()
+                val err = p.errorStream.bufferedReader().readText()
+                p.waitFor()
+                Log.d(TAG, "execWithFallback[$su][$cmd] => ${out.take(80)}")
+                if (out.isNotBlank()) return out
+            } catch (_: Exception) {}
+        }
+        Log.e(TAG, "execWithFallback: all su paths failed for: $cmd")
+        return null
+    }
+
+    private fun execInternal(cmd: String): String? {
         return try {
-            // Shizuku grants this process adb-level privileges after permission
-            // is approved — Runtime.exec runs with those elevated permissions.
             val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
             val out = process.inputStream.bufferedReader().readText()
             process.waitFor()
@@ -99,21 +130,21 @@ class ShizukuManager @Inject constructor() {
 
     /** Load ALSA loopback module so processed audio appears as a mic device */
     fun loadAlsaLoopback(): Boolean {
-        val out = exec("modprobe snd-aloop pcm_substreams=2 2>&1 || insmod /system/lib/modules/snd-aloop.ko pcm_substreams=2 2>&1")
+        val out = execWithFallback("modprobe snd-aloop pcm_substreams=2 2>&1 || insmod /system/lib/modules/snd-aloop.ko pcm_substreams=2 2>&1")
         return out != null && !out.contains("error", ignoreCase = true)
     }
 
     /** Route our audio output to the loopback capture side via tinyalsa */
     fun routeToLoopback(sampleRate: Int = 48000): Boolean {
-        val tinymix = exec("which tinymix") ?: return false
+        val tinymix = execWithFallback("which tinymix") ?: return false
         if (tinymix.isBlank()) return false
-        exec("tinymix 'Loopback Mixer' 1")
+        execWithFallback("tinymix 'Loopback Mixer' 1")
         return true
     }
 
     /** Set microphone as default input (adb-level appops) */
     fun setAppOpsMicDefault(packageName: String): Boolean {
-        val out = exec("appops set $packageName RECORD_AUDIO allow")
+        val out = execWithFallback("appops set $packageName RECORD_AUDIO allow")
         return out != null
     }
 

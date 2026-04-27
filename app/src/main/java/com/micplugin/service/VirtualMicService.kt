@@ -47,8 +47,53 @@ class VirtualMicService @Inject constructor(
             val suPaths = listOf(
                 "/system/bin/su", "/system/xbin/su", "/sbin/su",
                 "/su/bin/su", "/magisk/.core/bin/su", "/data/local/xbin/su",
+                "/data/adb/magisk/busybox", "/data/adb/ksu/bin/su",
             )
-            return suPaths.any { File(it).exists() }
+            if (suPaths.any { File(it).exists() }) return true
+            // Try executing su — catches cases where file exists but path is hidden
+            return try {
+                val p = findSuBinary()?.let {
+                    Runtime.getRuntime().exec(arrayOf(it, "-c", "id"))
+                } ?: Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+                val out = p.inputStream.bufferedReader().readText()
+                p.waitFor()
+                out.contains("uid=0")
+            } catch (_: Exception) { false }
+        }
+
+        /** Returns first working su binary path, tries Magisk/KernelSU/standard paths */
+        fun findSuBinary(): String? {
+            val candidates = listOf(
+                "/data/adb/magisk/busybox",
+                "/data/adb/ksu/bin/su",
+                "/data/adb/magisk/magisk",
+                "/sbin/.magisk/bin/busybox",
+                "/system/xbin/su",
+                "/system/bin/su",
+                "su",
+            )
+            return candidates.firstOrNull { path ->
+                try {
+                    if (path == "su") {
+                        Runtime.getRuntime().exec(arrayOf("su", "-c", "id")).let { p ->
+                            val ok = p.inputStream.bufferedReader().readText().contains("uid=0")
+                            p.destroy(); ok
+                        }
+                    } else File(path).exists()
+                } catch (_: Exception) { false }
+            }
+        }
+
+        fun execRoot(cmd: String): String? {
+            val su = findSuBinary() ?: return null
+            return try {
+                val args = if (su.contains("busybox")) arrayOf(su, "sh", "-c", cmd)
+                           else arrayOf(su, "-c", cmd)
+                val p = Runtime.getRuntime().exec(args)
+                val out = p.inputStream.bufferedReader().readText()
+                p.waitFor()
+                out
+            } catch (_: Exception) { null }
         }
     }
 
@@ -124,7 +169,7 @@ class VirtualMicService @Inject constructor(
         try {
             val outFile = File(context.cacheDir, MAGISK_MODULE_ASSET)
             context.assets.open(MAGISK_MODULE_ASSET).use { i -> outFile.outputStream().use { o -> i.copyTo(o) } }
-            Runtime.getRuntime().exec(arrayOf("su", "-c", "magisk --install-module ${outFile.absolutePath}"))
+            execRoot("magisk --install-module ${outFile.absolutePath}") ?: execRoot("/data/adb/magisk/magisk --install-module ${outFile.absolutePath}")
             Log.i(TAG, "Magisk module extraction triggered")
         } catch (e: Exception) {
             Log.e(TAG, "Magisk module install failed: $e")
