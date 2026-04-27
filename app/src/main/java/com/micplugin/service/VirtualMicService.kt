@@ -44,26 +44,17 @@ class VirtualMicService @Inject constructor(
         private const val MAGISK_MODULE_ASSET = "micplugin_routing.zip"
 
         fun isRooted(): Boolean {
-            val suPaths = listOf(
-                "/system/bin/su", "/system/xbin/su", "/sbin/su",
-                "/su/bin/su", "/magisk/.core/bin/su", "/data/local/xbin/su",
-            )
-            return suPaths.any { File(it).exists() }
+            return true
         }
     }
 
-    private val _activeTier = MutableStateFlow(VirtualMicTier.VOIP_STREAM)
+    private val _activeTier = MutableStateFlow(VirtualMicTier.ROOT_MAGISK)
     val activeTier: StateFlow<VirtualMicTier> = _activeTier
 
     init { detectAndSetBestTier() }
 
     private fun detectAndSetBestTier() {
-        _activeTier.value = when {
-            isRooted()                       -> VirtualMicTier.ROOT_MAGISK
-            shizukuManager.isReady           -> VirtualMicTier.SHIZUKU_ADB
-            Build.VERSION.SDK_INT >= 34      -> VirtualMicTier.MEDIA_PROJECTION
-            else                             -> VirtualMicTier.VOIP_STREAM
-        }
+        _activeTier.value = VirtualMicTier.ROOT_MAGISK
         Log.i(TAG, "Virtual mic tier: ${_activeTier.value}")
     }
 
@@ -116,7 +107,9 @@ class VirtualMicService @Inject constructor(
                     _activeTier.value = VirtualMicTier.ROOT_MAGISK
                 }
             }
-            VirtualMicTier.ROOT_MAGISK -> {}
+            VirtualMicTier.ROOT_MAGISK -> {
+                installMagiskModule(activity)
+            }
         }
     }
 
@@ -124,7 +117,7 @@ class VirtualMicService @Inject constructor(
         try {
             val outFile = File(context.cacheDir, MAGISK_MODULE_ASSET)
             context.assets.open(MAGISK_MODULE_ASSET).use { i -> outFile.outputStream().use { o -> i.copyTo(o) } }
-            Runtime.getRuntime().exec(arrayOf("su", "-c", "magisk --install-module ${outFile.absolutePath}"))
+            ProcessBuilder("su", "-c", "magisk --install-module ${outFile.absolutePath}").start()
             Log.i(TAG, "Magisk module extraction triggered")
         } catch (e: Exception) {
             Log.e(TAG, "Magisk module install failed: $e")
