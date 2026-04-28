@@ -48,14 +48,25 @@ class AudioProcessingService : Service() {
             return START_NOT_STICKY
         }
         val started = audioEngine.start()
-        if (!started) stopSelf()
-        else startStatusUpdates()
+        if (!started) {
+            // Native engine failed (no Oboe support) — fall back to software loopback
+            SoftwareLoopback.start(this)
+            startStatusUpdates()
+        } else {
+            startStatusUpdates()
+        }
+        // Always start software loopback as the routing layer for other apps
+        // This is what makes Discord/Messenger hear processed audio on ALL devices
+        if (!SoftwareLoopback.isRunning) {
+            SoftwareLoopback.start(this)
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         scope.cancel()
         audioEngine.stop()
+        SoftwareLoopback.stop()
         wakeLock?.release()
         super.onDestroy()
     }

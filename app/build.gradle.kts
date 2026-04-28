@@ -15,8 +15,14 @@ android {
         applicationId = "com.micplugin"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // Version injected by CI from git tag (e.g. v1.2.3 → 1.2.3)
+        val tagName = System.getenv("RELEASE_TAG") ?: "1.0.0"
+        val cleanTag = tagName.removePrefix("v")
+        val parts = cleanTag.split(".").mapNotNull { it.toIntOrNull() }
+        versionCode = (parts.getOrElse(0){1} * 10000) +
+                      (parts.getOrElse(1){0} * 100) +
+                       parts.getOrElse(2){0}
+        versionName = cleanTag
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
