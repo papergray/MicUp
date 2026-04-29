@@ -6,16 +6,6 @@ import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.*
 
-/**
- * Pure software loopback — works on ALL Android devices, no kernel module needed.
- *
- * Pipeline:
- *   AudioRecord (MIC) → DSP buffer → AudioTrack (VOICE_COMMUNICATION stream)
- *
- * VOICE_COMMUNICATION stream is what Discord/Messenger/Zoom tap as mic input
- * when the earpiece/speaker is the output. Combined with setCommunicationDevice
- * (Android 12+) or MODE_IN_COMMUNICATION (older), other apps hear processed audio.
- */
 object SoftwareLoopback {
 
     private const val TAG         = "MicPlugin.Loopback"
@@ -46,22 +36,20 @@ object SoftwareLoopback {
             stop(); return
         }
 
-        // Set device into communication mode so apps tap this stream as mic
         setCommunicationMode(true)
+        // FIX #2: force off speakerphone, route to earpiece/headset
+        routeToEarpieceOrHeadset()
 
         record!!.startRecording()
         track!!.play()
-        Log.i(TAG, "Software loopback started — buffer=$minBuf sampleRate=$SAMPLE_RATE")
+        Log.i(TAG, "Software loopback started — buffer=$minBuf")
 
         job = CoroutineScope(Dispatchers.Default).launch {
             val buf = ShortArray(minBuf / 2)
             while (isActive) {
                 val read = record?.read(buf, 0, buf.size) ?: break
                 if (read <= 0) continue
-
-                // Apply any DSP processing passed in from AudioEngine
                 processBuffer?.invoke(buf, read)
-
                 track?.write(buf, 0, read)
             }
         }
@@ -73,17 +61,75 @@ object SoftwareLoopback {
         try { track?.stop();  track?.release()  } catch (_: Exception) {}
         record = null; track = null
         setCommunicationMode(false)
+        restoreAudioRouting()
         Log.i(TAG, "Software loopback stopped")
+    }
+
+    // FIX #3: mute raw sidetone so only processed audio heard in monitor
+    fun setMicrophoneSidetone(mute: Boolean) {
+        try {
+            audioManager?.isMicrophoneMute = mute
+        } catch (_: Exception) {}
+    }
+
+    // ── FIX #2: Speaker lock ──────────────────────────────────────────────────
+
+    private fun routeToEarpieceOrHeadset() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Prefer wired headset, then bluetooth, then earpiece — NOT speaker
+                val preferred = am.availableCommunicationDevices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                } ?: am.availableCommunicationDevices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                } ?: am.availableCommunicationDevices.firstOrNull()
+
+                preferred?.let {
+                    am.setCommunicationDevice(it)
+                    Log.i(TAG, "Communication device set: ${it.productName} type=${it.type}")
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "routeToEarpieceOrHeadset failed: $e")
+        }
+    }
+
+    private fun restoreAudioRouting() {
+        val am = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= 31) am.clearCommunicationDevice()
+            else { @Suppress("DEPRECATION") am.isSpeakerphoneOn = false }
+        } catch (_: Exception) {}
+    }
+
+    // ── Communication mode ────────────────────────────────────────────────────
+
+    private fun setCommunicationMode(enable: Boolean) {
+        val am = audioManager ?: return
+        try {
+            @Suppress("DEPRECATION")
+            am.mode = if (enable) AudioManager.MODE_IN_COMMUNICATION
+                      else        AudioManager.MODE_NORMAL
+        } catch (e: Exception) {
+            Log.e(TAG, "setCommunicationMode failed: $e")
+        }
     }
 
     // ── Build AudioRecord ─────────────────────────────────────────────────────
 
     private fun buildRecord(bufSize: Int): AudioRecord? {
-        // Try sources in order of quality
+        // FIX #4: MIC first so voice messages work, VOICE_COMMUNICATION second
         val sources = listOf(
+            MediaRecorder.AudioSource.MIC,
             MediaRecorder.AudioSource.VOICE_COMMUNICATION,
             MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            MediaRecorder.AudioSource.MIC,
         )
         for (src in sources) {
             try {
@@ -101,7 +147,7 @@ object SoftwareLoopback {
                     AudioRecord(src, SAMPLE_RATE, CHANNELS, FORMAT, bufSize * 2)
                 }
                 if (r.state == AudioRecord.STATE_INITIALIZED) {
-                    Log.i(TAG, "AudioRecord created with source=$src")
+                    Log.i(TAG, "AudioRecord source=$src")
                     return r
                 }
                 r.release()
@@ -129,43 +175,15 @@ object SoftwareLoopback {
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
             } else {
+                @Suppress("DEPRECATION")
                 AudioTrack(
                     AudioManager.STREAM_VOICE_CALL,
-                    SAMPLE_RATE,
-                    AudioFormat.CHANNEL_OUT_MONO,
-                    FORMAT,
-                    bufSize * 2,
-                    AudioTrack.MODE_STREAM
+                    SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO,
+                    FORMAT, bufSize * 2, AudioTrack.MODE_STREAM
                 )
             }
         } catch (e: Exception) {
             Log.e(TAG, "AudioTrack build failed: $e"); null
-        }
-    }
-
-    // ── Communication mode (makes other apps use this stream as mic input) ────
-
-    private fun setCommunicationMode(enable: Boolean) {
-        val am = audioManager ?: return
-        try {
-            if (Build.VERSION.SDK_INT >= 31) {
-                // Android 12+ — set communication device explicitly
-                if (enable) {
-                    val earpiece = am.availableCommunicationDevices
-                        .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
-                        ?: am.availableCommunicationDevices.firstOrNull()
-                    earpiece?.let { am.setCommunicationDevice(it) }
-                } else {
-                    am.clearCommunicationDevice()
-                }
-            } else {
-                // Older Android — use audio mode
-                @Suppress("DEPRECATION")
-                am.mode = if (enable) AudioManager.MODE_IN_COMMUNICATION
-                           else       AudioManager.MODE_NORMAL
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "setCommunicationMode failed: $e")
         }
     }
 }

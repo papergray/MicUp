@@ -10,6 +10,7 @@ import com.micplugin.preset.Preset
 import com.micplugin.preset.PresetManager
 import com.micplugin.plugin.PluginPathPrefs
 import com.micplugin.service.ShizukuManager
+import com.micplugin.service.SoftwareLoopback
 import com.micplugin.service.ShizukuState
 import com.micplugin.service.VirtualMicService
 import com.micplugin.service.VirtualMicTier
@@ -285,6 +286,8 @@ class AudioViewModel @Inject constructor(
     fun setMonitoring(enabled: Boolean) {
         _monitoringEnabled.value = enabled
         audioEngine.setMonitoring(enabled)
+        // FIX #3: mute raw mic sidetone when monitoring ON so no dual-voice
+        SoftwareLoopback.setMicrophoneSidetone(mute = enabled)
     }
 
 
