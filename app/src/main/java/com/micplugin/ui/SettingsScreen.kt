@@ -143,8 +143,8 @@ fun SettingsScreen(navController: NavController, vm: AudioViewModel = hiltViewMo
 
             // ── About ─────────────────────────────────────────────────────────
             SettingsSection("About") {
-                SettingsInfoRow("Version", "1.0.0")
-                SettingsInfoRow("Build", "MicPlugin · Oboe 1.8.1 · CLAP 1.2.1")
+                SettingsInfoRow("Version", com.micplugin.BuildConfig.VERSION_NAME)
+                SettingsInfoRow("Build", "MicUp · Oboe 1.8.1 · CLAP 1.2.1 · LV2")
                 SettingsInfoRow("Native", "C++17 · NDK 26 · AAudio/OpenSL ES")
             }
 

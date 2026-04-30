@@ -16,13 +16,13 @@ enum class VirtualMicTier {
 
     val displayName: String get() = when (this) {
         VOIP_STREAM      -> "VoIP Compatible"
-        MEDIA_PROJECTION -> "Android 14 Mode"
+        MEDIA_PROJECTION -> "Software Loopback"
         SHIZUKU_ADB      -> "Shizuku — ADB Level"
         ROOT_MAGISK      -> "Root Mode — System-Wide"
     }
     val description: String get() = when (this) {
         VOIP_STREAM      -> "Processed audio routes through VoIP stream. Works with Meet, Teams, Discord, Zoom."
-        MEDIA_PROJECTION -> "Uses MediaProjection to intercept and re-inject audio. Set MicPlugin as virtual mic in Sound Settings."
+        MEDIA_PROJECTION -> "Uses software audio loopback via VOICE_COMMUNICATION stream. Works on all devices without root or Shizuku."
         SHIZUKU_ADB      -> "Uses Shizuku (ADB-level) to load ALSA loopback and route processed audio. Apps see 'MicPlugin Virtual Mic' without full root."
         ROOT_MAGISK      -> "Magisk module creates /dev/snd/virtual_mic via ALSA loopback. All apps see MicPlugin as a separate hardware device."
     }
