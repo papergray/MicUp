@@ -286,12 +286,27 @@ class AudioViewModel @Inject constructor(
     fun setMonitoring(enabled: Boolean) {
         _monitoringEnabled.value = enabled
         audioEngine.setMonitoring(enabled)
-        // FIX #3: mute raw mic sidetone when monitoring ON so no dual-voice
-        SoftwareLoopback.setMicrophoneSidetone(mute = !enabled)  // mute raw sidetone when monitor OFF
+        SoftwareLoopback.setMonitorEnabled(enabled)
     }
 
 
     fun getPluginParamsJson(nativeHandle: Long): String =
         audioEngine.getPluginParamsJson(nativeHandle)
+
+
+    private val _outputDevices = MutableStateFlow<List<com.micplugin.service.OutputDevice>>(emptyList())
+    val outputDevices: kotlinx.coroutines.flow.StateFlow<List<com.micplugin.service.OutputDevice>> = _outputDevices
+
+    private val _selectedOutputDeviceId = MutableStateFlow(-1)
+    val selectedOutputDeviceId: kotlinx.coroutines.flow.StateFlow<Int> = _selectedOutputDeviceId
+
+    fun loadOutputDevices(context: android.content.Context) {
+        _outputDevices.value = SoftwareLoopback.getOutputDevices(context)
+    }
+
+    fun setOutputDevice(context: android.content.Context, deviceId: Int) {
+        _selectedOutputDeviceId.value = deviceId
+        SoftwareLoopback.setOutputDevice(context, deviceId)
+    }
 
 }

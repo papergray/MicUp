@@ -38,7 +38,12 @@ class AudioProcessingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f))
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f))
+        }
         acquireWakeLock()
     }
 
@@ -75,14 +80,25 @@ class AudioProcessingService : Service() {
 
     private fun startStatusUpdates() {
         scope.launch {
+            var failCount = 0
             while (isActive) {
-                val status = audioEngine.status.value
-                val pluginCount = audioEngine.pluginChain.slots.value.size
-                updateNotification(
-                    "Active · $pluginCount plugins",
-                    pluginCount,
-                    status.latencyMs,
-                )
+                try {
+                    val status = audioEngine.status.value
+                    val pluginCount = audioEngine.pluginChain.slots.value.size
+                    updateNotification(
+                        "Active · $pluginCount plugins",
+                        pluginCount,
+                        status.latencyMs,
+                    )
+                    failCount = 0
+                } catch (e: Exception) {
+                    failCount++
+                    android.util.Log.e("MicUp.Service", "Status update failed #$failCount: $e")
+                    // Re-pin notification so OEM can't kill it
+                    try {
+                        startForeground(NOTIF_ID, buildNotification("Active", 0, 0f))
+                    } catch (_: Exception) {}
+                }
                 delay(5000)
             }
         }

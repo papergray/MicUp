@@ -135,6 +135,37 @@ fun SettingsScreen(navController: NavController, vm: AudioViewModel = hiltViewMo
                 }
             }
 
+
+            SettingsSection("Monitor Output Device") {
+                val devices    by vm.outputDevices.collectAsState()
+                val selectedId by vm.selectedOutputDeviceId.collectAsState()
+                LaunchedEffect(Unit) { vm.loadOutputDevices(context) }
+                if (devices.isEmpty()) {
+                    Text("No devices found", fontSize = 12.sp, color = StudioColors.TextMuted)
+                } else {
+                    devices.forEach { device ->
+                        val isSelected = device.id == selectedId
+                        Row(
+                            Modifier.fillMaxWidth().clickable { vm.setOutputDevice(context, device.id) }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = isSelected,
+                                onClick = { vm.setOutputDevice(context, device.id) },
+                                colors  = RadioButtonDefaults.colors(selectedColor = StudioColors.Accent))
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(device.name, fontSize = 12.sp,
+                                    color = if (isSelected) StudioColors.Accent else StudioColors.TextPrimary)
+                                if (device.id == -1)
+                                    Text("Prefers headset then earpiece, never speaker",
+                                        fontSize = 9.sp, color = StudioColors.TextMuted)
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── Plugins ───────────────────────────────────────────────────────
             SettingsSection("Plugins") {
                 SettingsActionRow("Manage Plugin Paths", Icons.Default.FolderOpen) { navController.navigate("plugin_paths") }
