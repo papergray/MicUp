@@ -103,20 +103,22 @@ class AudioProcessingService : Service() {
 
         val latencyStr = if (latencyMs > 0f) " · ${latencyMs.toInt()}ms" else ""
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MicPlugin Active")
+            .setContentTitle("MicUp Active")
             .setContentText("$text$latencyStr")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(mainIntent)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopIntent)
             .build()
     }
 
     private fun createNotificationChannel() {
         val ch = NotificationChannel(
-            CHANNEL_ID, "MicPlugin Audio",
-            NotificationManager.IMPORTANCE_LOW
+            CHANNEL_ID, "MicUp Audio",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Real-time audio processing service"
             setShowBadge(false)

@@ -287,7 +287,7 @@ class AudioViewModel @Inject constructor(
         _monitoringEnabled.value = enabled
         audioEngine.setMonitoring(enabled)
         // FIX #3: mute raw mic sidetone when monitoring ON so no dual-voice
-        SoftwareLoopback.setMicrophoneSidetone(mute = enabled)
+        SoftwareLoopback.setMicrophoneSidetone(mute = !enabled)  // mute raw sidetone when monitor OFF
     }
 
 
