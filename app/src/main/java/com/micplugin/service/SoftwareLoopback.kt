@@ -2,6 +2,8 @@ package com.micplugin.service
 
 import android.content.Context
 import android.media.*
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.*
@@ -26,6 +28,8 @@ object SoftwareLoopback {
     private var audioManager:  AudioManager? = null
     private var selectedDeviceId: Int        = -1
     private var monitorEnabled:   Boolean    = true
+    private var aec: AcousticEchoCanceler? = null
+    private var ns:  NoiseSuppressor?       = null
     private var focusRequest: AudioFocusRequest? = null
     private var inVoipCall = false  // true when Discord/Teams/etc has a live call
 
@@ -46,6 +50,15 @@ object SoftwareLoopback {
             Log.e(TAG, "Failed to create audio objects"); stop(); return
         }
 
+        // Attach AEC to cancel hardware sidetone from mic capture
+        if (AcousticEchoCanceler.isAvailable()) {
+            aec = AcousticEchoCanceler.create(record!!.audioSessionId)
+            aec?.enabled = true
+        }
+        if (NoiseSuppressor.isAvailable()) {
+            ns = NoiseSuppressor.create(record!!.audioSessionId)
+            ns?.enabled = true
+        }
         record!!.startRecording()
         routingTrack!!.play()
         routingTrack!!.setVolume(0f)  // silent to user — Discord reads via shared voice session
@@ -74,6 +87,8 @@ object SoftwareLoopback {
         try { record?.stop();       record?.release()       } catch (_: Exception) {}
         try { routingTrack?.stop(); routingTrack?.release() } catch (_: Exception) {}
         try { monitorTrack?.stop(); monitorTrack?.release() } catch (_: Exception) {}
+        try { aec?.release(); ns?.release() } catch (_: Exception) {}
+        aec = null; ns = null
         record = null; routingTrack = null; monitorTrack = null
         abandonAudioFocus()
         Log.i(TAG, "Loopback stopped")
