@@ -35,22 +35,38 @@ class AudioProcessingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private val phoneListener = object : PhoneStateListener() {
-        @Suppress("DEPRECATION")
-        override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-            val inCall = state != TelephonyManager.CALL_STATE_IDLE
-            SoftwareLoopback.onVoipCallStateChanged(inCall)
+    // Phone state listener — handles both old and new API
+    private val phoneListener: Any? = if (android.os.Build.VERSION.SDK_INT >= 31) {
+        object : android.telephony.TelephonyCallback(),
+                 android.telephony.TelephonyCallback.CallStateListener {
+            override fun onCallStateChanged(state: Int) {
+                SoftwareLoopback.onVoipCallStateChanged(
+                    state != TelephonyManager.CALL_STATE_IDLE
+                )
+            }
         }
-    }
+    } else null  // Pre-31 uses deprecated API registered below
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         // Listen for phone call state to hand off audio mode to VoIP apps
         try {
-            @Suppress("DEPRECATION")
-            getSystemService(TelephonyManager::class.java)
-                ?.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE)
+            val tm = getSystemService(TelephonyManager::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                (phoneListener as? android.telephony.TelephonyCallback)?.let {
+                    tm?.registerTelephonyCallback(mainExecutor, it)
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                tm?.listen(object : PhoneStateListener() {
+                    override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                        SoftwareLoopback.onVoipCallStateChanged(
+                            state != TelephonyManager.CALL_STATE_IDLE
+                        )
+                    }
+                }, PhoneStateListener.LISTEN_CALL_STATE)
+            }
         } catch (_: Exception) {}
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
@@ -84,9 +100,15 @@ class AudioProcessingService : Service() {
 
     override fun onDestroy() {
         try {
-            @Suppress("DEPRECATION")
-            getSystemService(TelephonyManager::class.java)
-                ?.listen(phoneListener, PhoneStateListener.LISTEN_NONE)
+            val tm = getSystemService(TelephonyManager::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                (phoneListener as? android.telephony.TelephonyCallback)?.let {
+                    tm?.unregisterTelephonyCallback(it)
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                tm?.listen(null, PhoneStateListener.LISTEN_NONE)
+            }
         } catch (_: Exception) {}
         scope.cancel()
         audioEngine.stop()
