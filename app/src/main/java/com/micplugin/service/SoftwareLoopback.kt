@@ -53,10 +53,6 @@ object SoftwareLoopback {
         // Request audio focus for monitor — yield immediately to VoIP apps
         requestAudioFocus()
 
-        // Default: set communication mode so recorder apps hear processed audio
-        // This is overridden when a VoIP call is detected
-        setAudioMode(true)
-
         applyMonitorDevice()
         Log.i(TAG, "Loopback started monitor=$monitorEnabled")
 
@@ -79,7 +75,6 @@ object SoftwareLoopback {
         try { monitorTrack?.stop(); monitorTrack?.release() } catch (_: Exception) {}
         record = null; routingTrack = null; monitorTrack = null
         abandonAudioFocus()
-        setAudioMode(false)
         Log.i(TAG, "Loopback stopped")
     }
 
@@ -100,11 +95,7 @@ object SoftwareLoopback {
     fun onVoipCallStateChanged(active: Boolean) {
         inVoipCall = active
         Log.i(TAG, "VoIP call state: $active")
-        if (!active) {
-            // Call ended — re-claim communication mode for recorder apps
-            setAudioMode(true)
-        }
-        // When call is active, Discord owns the audio mode — we don't touch it
+        // Audio mode left at MODE_NORMAL — hardware sidetone stays off
     }
 
     fun setMicrophoneSidetone(mute: Boolean) {
