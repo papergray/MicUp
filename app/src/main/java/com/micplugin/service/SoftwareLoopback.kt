@@ -48,6 +48,7 @@ object SoftwareLoopback {
 
         record!!.startRecording()
         routingTrack!!.play()
+        routingTrack!!.setVolume(0f)  // silent to user — Discord reads via shared voice session
         if (monitorEnabled) monitorTrack?.play()
 
         // Request audio focus for monitor — yield immediately to VoIP apps
@@ -149,8 +150,8 @@ object SoftwareLoopback {
                     monitorTrack?.setVolume(0.2f)
                 }
                 AudioManager.AUDIOFOCUS_GAIN -> {
-                    // We got focus back — restore monitor if it was enabled
                     Log.i(TAG, "Audio focus gained — restoring monitor")
+                    routingTrack?.setVolume(0f)   // always keep routing track silent
                     monitorTrack?.setVolume(1.0f)
                     if (monitorEnabled) monitorTrack?.play()
                 }
@@ -263,8 +264,6 @@ object SoftwareLoopback {
     } catch (e: Exception) { Log.e(TAG, "monitorTrack failed: $e"); null }
 
     private fun buildRecord(bufSize: Int): AudioRecord? {
-        // Use MIC source only — VOICE_COMMUNICATION activates hardware echo path
-        // which causes hardware sidetone regardless of audio mode
         for (src in listOf(
             MediaRecorder.AudioSource.MIC,
             MediaRecorder.AudioSource.VOICE_RECOGNITION,
