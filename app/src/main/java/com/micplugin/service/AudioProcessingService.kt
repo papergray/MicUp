@@ -35,9 +35,23 @@ class AudioProcessingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
+    private val phoneListener = object : PhoneStateListener() {
+        @Suppress("DEPRECATION")
+        override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+            val inCall = state != TelephonyManager.CALL_STATE_IDLE
+            SoftwareLoopback.onVoipCallStateChanged(inCall)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        // Listen for phone call state to hand off audio mode to VoIP apps
+        try {
+            @Suppress("DEPRECATION")
+            getSystemService(TelephonyManager::class.java)
+                ?.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE)
+        } catch (_: Exception) {}
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
@@ -69,6 +83,11 @@ class AudioProcessingService : Service() {
     }
 
     override fun onDestroy() {
+        try {
+            @Suppress("DEPRECATION")
+            getSystemService(TelephonyManager::class.java)
+                ?.listen(phoneListener, PhoneStateListener.LISTEN_NONE)
+        } catch (_: Exception) {}
         scope.cancel()
         audioEngine.stop()
         SoftwareLoopback.stop()

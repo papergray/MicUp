@@ -302,11 +302,19 @@ class AudioViewModel @Inject constructor(
 
     fun loadOutputDevices(context: android.content.Context) {
         _outputDevices.value = SoftwareLoopback.getOutputDevices(context)
+        // Restore saved selection
+        val saved = context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .getInt("output_device_id", -1)
+        _selectedOutputDeviceId.value = saved
+        SoftwareLoopback.setOutputDevice(context, saved)
     }
 
     fun setOutputDevice(context: android.content.Context, deviceId: Int) {
         _selectedOutputDeviceId.value = deviceId
         SoftwareLoopback.setOutputDevice(context, deviceId)
+        // Persist selection
+        context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putInt("output_device_id", deviceId).apply()
     }
 
 }
