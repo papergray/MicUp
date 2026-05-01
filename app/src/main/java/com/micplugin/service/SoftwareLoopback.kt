@@ -263,9 +263,10 @@ object SoftwareLoopback {
     } catch (e: Exception) { Log.e(TAG, "monitorTrack failed: $e"); null }
 
     private fun buildRecord(bufSize: Int): AudioRecord? {
+        // Use MIC source only — VOICE_COMMUNICATION activates hardware echo path
+        // which causes hardware sidetone regardless of audio mode
         for (src in listOf(
             MediaRecorder.AudioSource.MIC,
-            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
             MediaRecorder.AudioSource.VOICE_RECOGNITION,
         )) {
             try {

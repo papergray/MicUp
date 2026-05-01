@@ -94,9 +94,12 @@ class AudioViewModel @Inject constructor(
     }
 
     // ── Engine control ─────────────────────────────────────────────────────────
-    fun toggleEngine() {
-        if (engineStatus.value.isRunning) audioEngine.stop()
-        else audioEngine.start()
+    fun toggleEngine(context: android.content.Context) {
+        if (engineStatus.value.isRunning) {
+            com.micplugin.service.AudioProcessingService.stop(context)
+        } else {
+            com.micplugin.service.AudioProcessingService.start(context)
+        }
     }
 
     fun setMasterBypass(bypass: Boolean) {

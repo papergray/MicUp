@@ -22,6 +22,7 @@ import com.micplugin.service.VirtualMicTier
 
 @Composable
 fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel()) {
+    val context     = LocalContext.current
     val levels      by vm.levels.collectAsState()
     val status      by vm.engineStatus.collectAsState()
     val gateState   by vm.gateState.collectAsState()
@@ -66,7 +67,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
             Spacer(Modifier.width(10.dp))
             // Power button
             IconButton(
-                onClick = { vm.toggleEngine() },
+                onClick = { vm.toggleEngine(context) },
                 modifier = Modifier
                     .size(36.dp)
                     .background(
