@@ -105,4 +105,46 @@ class AudioProcessingService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK, "MicPlugin::AudioWakeLock"
         ).apply { acquire() } // No timeout — released explicitly in onDestroy
     }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f))
+        }
+        acquireWakeLock()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        val started = audioEngine.start()
+        if (!started) {
+            SoftwareLoopback.start(this)
+            startStatusUpdates()
+        } else {
+            startStatusUpdates()
+        }
+        if (!SoftwareLoopback.isRunning) {
+            SoftwareLoopback.start(this)
+        }
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        audioEngine.stop()
+        SoftwareLoopback.stop()
+        wakeLock?.release()
+        super.onDestroy()
+    }
+
+
 }
