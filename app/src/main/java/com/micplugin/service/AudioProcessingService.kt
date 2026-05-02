@@ -129,12 +129,15 @@ class AudioProcessingService : Service() {
         if (!started) {
             SoftwareLoopback.start(this)
             startStatusUpdates()
+            audioEngine.setMonitorCallback { buf, size -> SoftwareLoopback.writeProcessed(buf, size) }
         } else {
             startStatusUpdates()
         }
         if (!SoftwareLoopback.isRunning) {
             SoftwareLoopback.start(this)
         }
+        // Wire OboeEngine output → SoftwareLoopback (processed audio only, one pipeline)
+        audioEngine.setMonitorCallback { buf, size -> SoftwareLoopback.writeProcessed(buf, size) }
         return START_STICKY
     }
 

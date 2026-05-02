@@ -61,6 +61,16 @@ class AudioEngine @Inject constructor(
         _levels.value = AudioLevels()
     }
 
+    private var monitorCallback: ((ShortArray, Int) -> Unit)? = null
+
+    fun setMonitorCallback(cb: (ShortArray, Int) -> Unit) {
+        monitorCallback = cb
+    }
+
+    fun dispatchProcessedBuffer(buf: ShortArray, size: Int) {
+        monitorCallback?.invoke(buf, size)
+    }
+
     fun setMonitoring(enabled: Boolean) = oboe.setParam(98, 0, if (enabled) 1f else 0f)
     fun setMasterBypass(bypass: Boolean) = oboe.setParam(99, 0, if (bypass) 1f else 0f)
 
