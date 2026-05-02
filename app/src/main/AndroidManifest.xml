@@ -26,6 +26,9 @@
     <!-- Battery optimization exclusion -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Shizuku API permission — required for checkSelfPermission() to work -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+
     <!-- Feature requirements -->
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
 

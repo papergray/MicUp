@@ -29,13 +29,7 @@ class ShizukuManager @Inject constructor() {
     // Called once from App.onCreate
     fun init() {
         try {
-            if (!Shizuku.pingBinder()) {
-                _state.value = ShizukuState.UNAVAILABLE
-                Log.i(TAG, "Shizuku binder not available")
-                return
-            }
-            refreshState()
-
+            // Always register listeners first so we catch Shizuku starting later
             Shizuku.addBinderReceivedListener {
                 Log.i(TAG, "Shizuku binder received")
                 refreshState()
@@ -47,6 +41,14 @@ class ShizukuManager @Inject constructor() {
             Shizuku.addRequestPermissionResultListener { _, result ->
                 _state.value = if (result == PackageManager.PERMISSION_GRANTED)
                     ShizukuState.READY else ShizukuState.NEED_GRANT
+            }
+
+            // Now check current state (binder may or may not be up yet)
+            if (Shizuku.pingBinder()) {
+                refreshState()
+            } else {
+                _state.value = ShizukuState.UNAVAILABLE
+                Log.i(TAG, "Shizuku binder not available yet — waiting for callback")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Shizuku init failed: $e")
