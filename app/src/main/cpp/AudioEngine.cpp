@@ -238,22 +238,49 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     // Measure output level
     measureLevel(out, numFrames, params_.outputLevelDb);
 
-    // Always dispatch processed audio to Kotlin monitor (independent of native output)
+    // Always dispatch processed audio to Kotlin monitor (for SoftwareLoopback/metering)
     dispatchToKotlin(out, numFrames);
 
-    // Native output: always silence it — Kotlin SoftwareLoopback handles monitor playback
-    // This avoids double-play through headphones
-    std::fill(out, out + numFrames, 0.0f);
+    // Injection mode (Shizuku/Root): let processed audio flow out the native stream to ALSA loopback
+    // Software loopback mode: zero native output — Kotlin SoftwareLoopback handles monitor playback
+    if (!params_.injectionMode.load(std::memory_order_relaxed)) {
+        std::fill(out, out + numFrames, 0.0f);
+    }
 
     return oboe::DataCallbackResult::Continue;
 }
 
 void AudioEngine::onErrorAfterClose(oboe::AudioStream* stream, oboe::Result error) {
-    LOGE("Audio stream error: %s — restarting", oboe::convertToText(error));
-    if (running_.load()) {
-        closeStreams();
-        openStreams();
+    LOGE("Audio stream error: %s", oboe::convertToText(error));
+    if (!running_.load()) return;
+
+    // Backoff: track restarts in a 10-second window
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    int64_t nowMs = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+
+    if (nowMs - lastRestartMs_ > 10000) {
+        // Window expired — reset counter
+        restartCount_ = 0;
     }
+    lastRestartMs_ = nowMs;
+    restartCount_++;
+
+    if (restartCount_ > kMaxRestarts) {
+        LOGE("Too many stream restarts (%d) — giving up to avoid su popup loop", restartCount_);
+        running_.store(false, std::memory_order_release);
+        closeStreams();
+        return;
+    }
+
+    // Exponential backoff sleep before retry (avoids hammering audio HAL)
+    int backoffMs = 100 * (1 << std::min(restartCount_ - 1, 5));
+    LOGI("Restarting audio streams (attempt %d/%d, backoff %dms)", restartCount_, kMaxRestarts, backoffMs);
+    struct timespec sleep_ts = { backoffMs / 1000, (backoffMs % 1000) * 1000000L };
+    nanosleep(&sleep_ts, nullptr);
+
+    closeStreams();
+    openStreams();
 }
 
 void AudioEngine::measureLevel(const float* buf, int32_t frames, std::atomic<float>& out) {
@@ -535,6 +562,14 @@ Java_com_micplugin_audio_OboeEngine_nativeGetSampleRate(JNIEnv*, jobject, jlong 
 JNIEXPORT jint JNICALL
 Java_com_micplugin_audio_OboeEngine_nativeGetFramesPerBurst(JNIEnv*, jobject, jlong handle) {
     return reinterpret_cast<AudioEngine*>(handle)->framesPerBurst();
+}
+
+JNIEXPORT void JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeSetInjectionMode(
+    JNIEnv*, jobject, jlong handle, jboolean enabled) {
+    auto* engine = reinterpret_cast<AudioEngine*>(handle);
+    engine->params().injectionMode.store(enabled == JNI_TRUE, std::memory_order_relaxed);
+    LOGI("Injection mode: %s", enabled ? "ON (Shizuku/Root)" : "OFF (software loopback)");
 }
 
 JNIEXPORT void JNICALL

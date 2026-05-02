@@ -89,6 +89,10 @@ struct EffectParams {
     // Master bypass
     std::atomic<bool>  masterBypass{false};
 
+    // Injection mode: true = Shizuku/Root tier, let audio out of native stream
+    //                false = software loopback tier, zero native output (Kotlin handles monitor)
+    std::atomic<bool>  injectionMode{false};
+
     // Monitoring now handled in Kotlin via JNI callback — param 98 unused
 
     EffectParams() {
@@ -189,6 +193,11 @@ private:
     // Streams
     std::shared_ptr<oboe::AudioStream> inputStream_, outputStream_;
     std::atomic<bool> running_{false};
+
+    // Restart loop protection
+    static constexpr int kMaxRestarts = 5;
+    int   restartCount_  = 0;
+    int64_t lastRestartMs_ = 0;  // epoch ms of last restart
 
     int32_t sampleRate_    = 48000;
     int32_t framesPerBurst_ = 128;

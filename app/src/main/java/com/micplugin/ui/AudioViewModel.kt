@@ -91,6 +91,13 @@ class AudioViewModel @Inject constructor(
     init {
         viewModelScope.launch { presetManager.loadAll() }
         viewModelScope.launch { pluginManager.scanAll() }
+        // When tier upgrades to Shizuku/Root, tell C++ engine to stop zeroing output
+        viewModelScope.launch {
+            virtualMicService.activeTier.collect { tier ->
+                val inject = tier == VirtualMicTier.SHIZUKU_ADB || tier == VirtualMicTier.ROOT_MAGISK
+                audioEngine.setInjectionMode(inject)
+            }
+        }
     }
 
     // ── Engine control ─────────────────────────────────────────────────────────
@@ -296,7 +303,7 @@ class AudioViewModel @Inject constructor(
 
     fun setMonitoring(enabled: Boolean) {
         _monitoringEnabled.value = enabled
-        audioEngine.setMonitoring(enabled)
+        audioEngine.setInjectionMode(true)   // always inject — monitor toggle only affects local playback
         SoftwareLoopback.setMonitorEnabled(enabled)
     }
 

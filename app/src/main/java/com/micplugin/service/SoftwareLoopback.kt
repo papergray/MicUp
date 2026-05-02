@@ -181,7 +181,7 @@ object SoftwareLoopback {
         if (Build.VERSION.SDK_INT >= 26) {
             focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setOnAudioFocusChangeListener(listener)
                 .setWillPauseWhenDucked(false).build()
@@ -205,7 +205,7 @@ object SoftwareLoopback {
         if (Build.VERSION.SDK_INT >= 26) {
             AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder()
                     .setSampleRate(SAMPLE_RATE)
@@ -215,7 +215,7 @@ object SoftwareLoopback {
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
         } else {
             @Suppress("DEPRECATION")
-            AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE,
+            AudioTrack(AudioManager.STREAM_VOICE_CALL, SAMPLE_RATE,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,   // pre-API26 fallback
                 bufSize * 2, AudioTrack.MODE_STREAM)
