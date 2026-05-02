@@ -125,17 +125,10 @@ class AudioProcessingService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        // Wire processed audio from C++ → SoftwareLoopback monitor
         audioEngine.setMonitorCallback { buf: FloatArray, size: Int -> SoftwareLoopback.writeProcessed(buf, size) }
-        val started = audioEngine.start()
-        if (started) {
-            // Always inject — VOICE_COMMUNICATION output stream routes into VoIP mic path
-            audioEngine.setInjectionMode(true)
-        }
+        audioEngine.start()
         startStatusUpdates()
-        if (!SoftwareLoopback.isRunning) {
-            SoftwareLoopback.start(this)
-        }
+        if (!SoftwareLoopback.isRunning) SoftwareLoopback.start(this)
         return START_STICKY
     }
 

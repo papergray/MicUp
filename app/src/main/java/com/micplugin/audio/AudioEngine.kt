@@ -65,6 +65,7 @@ class AudioEngine @Inject constructor(
         oboe.setMonitorCallback(cb)
     }
 
+    fun setVolume(volume: Float) = oboe.setVolume(volume)
     fun setMonitoring(enabled: Boolean) = oboe.setParam(98, 0, if (enabled) 1f else 0f)
     fun setMasterBypass(bypass: Boolean) = oboe.setParam(99, 0, if (bypass) 1f else 0f)
     fun setInjectionMode(enabled: Boolean) = oboe.setInjectionMode(enabled)

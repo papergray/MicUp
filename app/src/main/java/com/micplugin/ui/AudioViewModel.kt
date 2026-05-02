@@ -303,7 +303,6 @@ class AudioViewModel @Inject constructor(
 
     fun setMonitoring(enabled: Boolean) {
         _monitoringEnabled.value = enabled
-        audioEngine.setInjectionMode(true)   // always inject — monitor toggle only affects local playback
         SoftwareLoopback.setMonitorEnabled(enabled)
     }
 

@@ -241,11 +241,9 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     // Always dispatch processed audio to Kotlin monitor (for SoftwareLoopback/metering)
     dispatchToKotlin(out, numFrames);
 
-    // Injection mode (Shizuku/Root): let processed audio flow out the native stream to ALSA loopback
-    // Software loopback mode: zero native output — Kotlin SoftwareLoopback handles monitor playback
-    if (!params_.injectionMode.load(std::memory_order_relaxed)) {
-        std::fill(out, out + numFrames, 0.0f);
-    }
+
+
+
 
     return oboe::DataCallbackResult::Continue;
 }
@@ -606,5 +604,13 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
     }
     return env->NewStringUTF(json.c_str());
 }
+
+JNIEXPORT void JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeSetVolume(
+    JNIEnv*, jobject, jlong handle, jfloat volume) {
+    auto* engine = reinterpret_cast<micplugin::AudioEngine*>(handle);
+    if (engine) engine->setOutputVolume(volume);
+}
+
 
 } // extern "C"
