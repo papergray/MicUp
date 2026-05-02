@@ -34,7 +34,8 @@ object SoftwareLoopback {
         audioManager = context.getSharedPreferences("micup_prefs", Context.MODE_PRIVATE)
             .let { audioManager ?: context.getSystemService(AudioManager::class.java) }
 
-        val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNELS, FORMAT).coerceAtLeast(4096)
+        // Use 2x minimum for low latency — coerceAtLeast(2048) balances latency vs underruns
+        val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNELS, FORMAT).coerceAtLeast(2048)
         record = buildRecord(minBuf)
         track  = buildTrack(minBuf)
 
@@ -58,6 +59,11 @@ object SoftwareLoopback {
 
         applyOutputDevice()
         requestAudioFocus()
+        try {
+            @Suppress("DEPRECATION")
+            audioManager?.mode = if (monitorEnabled) AudioManager.MODE_IN_COMMUNICATION
+                                  else                AudioManager.MODE_NORMAL
+        } catch (_: Exception) {}
 
         Log.i(TAG, "Loopback started monitor=$monitorEnabled")
 
@@ -79,13 +85,22 @@ object SoftwareLoopback {
         try { track?.stop();  track?.release()  } catch (_: Exception) {}
         aec = null; ns = null; record = null; track = null
         abandonAudioFocus()
+        try { @Suppress("DEPRECATION") audioManager?.mode = AudioManager.MODE_NORMAL } catch (_: Exception) {}
         Log.i(TAG, "Loopback stopped")
     }
 
     fun setMonitorEnabled(enabled: Boolean) {
         monitorEnabled = enabled
-        // Volume 0 = Discord still reads the VOICE_COMMUNICATION track, you just don't hear it
         track?.setVolume(if (enabled) 1f else 0f)
+        // MODE_IN_COMMUNICATION tells Android to route VOICE_COMMUNICATION capture to apps
+        // Only set when running — don't set if stopped
+        if (isRunning) {
+            try {
+                @Suppress("DEPRECATION")
+                audioManager?.mode = if (enabled) AudioManager.MODE_IN_COMMUNICATION
+                                     else          AudioManager.MODE_NORMAL
+            } catch (_: Exception) {}
+        }
         Log.i(TAG, "Monitor ${if (enabled) "ON" else "OFF"}")
     }
 
@@ -177,7 +192,7 @@ object SoftwareLoopback {
         if (Build.VERSION.SDK_INT >= 26) {
             AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder()
                     .setSampleRate(SAMPLE_RATE).setEncoding(FORMAT)
@@ -192,7 +207,7 @@ object SoftwareLoopback {
     } catch (e: Exception) { Log.e(TAG, "buildTrack: $e"); null }
 
     private fun buildRecord(bufSize: Int): AudioRecord? {
-        for (src in listOf(MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.VOICE_RECOGNITION)) {
+        for (src in listOf(MediaRecorder.AudioSource.VOICE_COMMUNICATION, MediaRecorder.AudioSource.MIC)) {
             try {
                 val r = if (Build.VERSION.SDK_INT >= 23) {
                     AudioRecord.Builder()
