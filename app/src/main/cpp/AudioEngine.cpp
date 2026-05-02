@@ -605,12 +605,6 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
     return env->NewStringUTF(json.c_str());
 }
 
-JNIEXPORT void JNICALL
-Java_com_micplugin_audio_OboeEngine_nativeSetVolume(
-    JNIEnv*, jobject, jlong handle, jfloat volume) {
-    auto* engine = reinterpret_cast<micplugin::AudioEngine*>(handle);
-    if (engine) engine->setOutputVolume(volume);
-}
 
 
 } // extern "C"
