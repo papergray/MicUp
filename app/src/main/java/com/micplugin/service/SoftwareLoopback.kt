@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.*
 import android.os.Build
 import android.util.Log
+import java.util.concurrent.ArrayBlockingQueue
 
 data class OutputDevice(val id: Int, val name: String, val type: Int)
 
@@ -11,65 +12,115 @@ object SoftwareLoopback {
 
     private const val TAG         = "MicPlugin.Loopback"
     private const val SAMPLE_RATE = 48000
-    private const val FORMAT      = AudioFormat.ENCODING_PCM_16BIT
+    private const val FORMAT      = AudioFormat.ENCODING_PCM_FLOAT
+    private const val QUEUE_CAP   = 16  // max buffered frames before dropping
 
-    // monitorTrack: STREAM_MUSIC — what YOU hear (volume controlled)
-    private var monitorTrack: AudioTrack?   = null
-    // routingTrack: VOICE_COMMUNICATION, volume=0 — what Discord/apps tap (always silent to you)
-    private var routingTrack: AudioTrack?   = null
-    private var audioManager: AudioManager? = null
-    private var selectedDeviceId: Int       = -1
-    private var monitorEnabled:   Boolean   = true
-    private var focusRequest:     AudioFocusRequest? = null
+    private var monitorTrack:  AudioTrack?   = null
+    private var workerThread:  Thread?       = null
+    private var audioManager:  AudioManager? = null
+    private var selectedDeviceId: Int        = -1
+    private var monitorEnabled:   Boolean    = true
+    private var running = false
+    private var focusRequest: AudioFocusRequest? = null
 
-    val isRunning: Boolean get() = monitorTrack != null
+    // Lock-free float queue — audio callback offers, worker thread drains
+    private val queue = ArrayBlockingQueue<FloatArray>(QUEUE_CAP)
+
+    // Buffer pool — reuse allocations to avoid GC pressure every frame
+    private val pool  = ArrayBlockingQueue<FloatArray>(QUEUE_CAP * 2)
+
+    val isRunning: Boolean get() = running
+
+    // ── Start / Stop ──────────────────────────────────────────────────────────
 
     fun start(context: Context) {
-        if (isRunning) return
+        if (running) return
         audioManager = context.getSystemService(AudioManager::class.java)
-        val minBuf = 4096  // fixed buffer — no AudioRecord needed
+
+        val minBuf = AudioTrack.getMinBufferSize(SAMPLE_RATE,
+            AudioFormat.CHANNEL_OUT_MONO, FORMAT).coerceAtLeast(4096)
+
         monitorTrack = buildMonitorTrack(minBuf)
-        routingTrack = buildRoutingTrack(minBuf)
+        if (monitorTrack == null) { Log.e(TAG, "AudioTrack init failed"); return }
 
+        monitorTrack!!.play()
+        monitorTrack!!.setVolume(if (monitorEnabled) 1f else 0f)
 
-        monitorTrack?.play()
-        monitorTrack?.setVolume(if (monitorEnabled) 1f else 0f)
-        routingTrack?.play()
-        routingTrack?.setVolume(0f) // ALWAYS silent to user — Discord reads session internally
+        running = true
+        queue.clear()
+
+        // Worker thread drains queue → writes to AudioTrack (blocking OK here)
+        workerThread = Thread({
+            Log.i(TAG, "Worker thread started")
+            while (running) {
+                try {
+                    val buf = queue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                        ?: continue
+                    if (monitorEnabled) {
+                        monitorTrack?.write(buf, 0, buf.size, AudioTrack.WRITE_BLOCKING)
+                    }
+                    // Recycle buffer back to pool — no GC
+                    pool.offer(buf)
+                } catch (_: InterruptedException) { break }
+                  catch (e: Exception) { Log.e(TAG, "Worker write error: $e") }
+            }
+            Log.i(TAG, "Worker thread stopped")
+        }, "MicUp-Monitor-Worker")
+        workerThread!!.priority = Thread.MAX_PRIORITY
+        workerThread!!.start()
 
         applyOutputDevice()
         requestAudioFocus()
-        Log.i(TAG, "Loopback started monitor=$monitorEnabled")
-
-        // No self-capture — OboeEngine feeds us via writeProcessed()
+        Log.i(TAG, "SoftwareLoopback started monitor=$monitorEnabled")
     }
 
     fun stop() {
+        running = false
+        queue.clear()
+        pool.clear()
+        workerThread?.interrupt()
+        workerThread?.join(500)
+        workerThread = null
         try { monitorTrack?.stop(); monitorTrack?.release() } catch (_: Exception) {}
-        try { routingTrack?.stop(); routingTrack?.release() } catch (_: Exception) {}
-        monitorTrack = null; routingTrack = null
+        monitorTrack = null
         abandonAudioFocus()
         try { @Suppress("DEPRECATION") audioManager?.mode = AudioManager.MODE_NORMAL } catch (_: Exception) {}
-        Log.i(TAG, "Loopback stopped")
+        Log.i(TAG, "SoftwareLoopback stopped")
     }
 
-
-    /** Called by OboeEngine with already-processed audio — the ONLY audio source */
-    fun writeProcessed(buf: ShortArray, size: Int) {
-        if (!isRunning) return
-        if (monitorEnabled) monitorTrack?.write(buf, 0, size)
-        routingTrack?.write(buf, 0, size)
+    // ── Called from JNI callback (audio thread) ───────────────────────────────
+    // Fast path: grab pooled buffer, copy, offer. Never alloc if pool has one.
+    fun writeProcessed(buf: FloatArray, size: Int) {
+        if (!running || !monitorEnabled) return
+        // Get buffer from pool or allocate (rare — only first QUEUE_CAP frames)
+        val copy = pool.poll() ?: FloatArray(size)
+        if (copy.size >= size) {
+            System.arraycopy(buf, 0, copy, 0, size)
+        } else {
+            // Pool buffer too small (shouldn't happen) — just copy
+            buf.copyInto(copy, 0, 0, minOf(size, copy.size))
+        }
+        // Drop-oldest: if queue full, evict oldest and recycle it
+        if (!queue.offer(copy)) {
+            val dropped = queue.poll()   // remove oldest
+            dropped?.let { pool.offer(it) }  // recycle
+            queue.offer(copy)            // now guaranteed space
+        }
     }
+
+    // ── Monitor toggle ────────────────────────────────────────────────────────
 
     fun setMonitorEnabled(enabled: Boolean) {
         monitorEnabled = enabled
         monitorTrack?.setVolume(if (enabled) 1f else 0f)
-        // Pause writes to monitor when off to save CPU
+        if (!enabled) queue.clear()
         Log.i(TAG, "Monitor ${if (enabled) "ON" else "OFF"}")
     }
 
     fun setMicrophoneSidetone(mute: Boolean) {}
     fun onVoipCallStateChanged(active: Boolean) {}
+
+    // ── Output device ─────────────────────────────────────────────────────────
 
     fun getOutputDevices(context: Context): List<OutputDevice> {
         val am = context.getSystemService(AudioManager::class.java)
@@ -98,6 +149,8 @@ object SoftwareLoopback {
         applyOutputDevice()
     }
 
+    // ── Internal ──────────────────────────────────────────────────────────────
+
     private fun applyOutputDevice() {
         if (Build.VERSION.SDK_INT < 23) return
         val am = audioManager ?: return
@@ -105,9 +158,9 @@ object SoftwareLoopback {
             val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val dev = if (selectedDeviceId == -1) {
                 outputs.firstOrNull {
-                    it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET    ||
                     it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
-                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET      ||
                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                 } ?: outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
             } else outputs.firstOrNull { it.id == selectedDeviceId }
@@ -120,9 +173,9 @@ object SoftwareLoopback {
         val listener = AudioManager.OnAudioFocusChangeListener { change ->
             when (change) {
                 AudioManager.AUDIOFOCUS_LOSS,
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT         -> monitorTrack?.setVolume(0f)
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK-> monitorTrack?.setVolume(0.2f)
-                AudioManager.AUDIOFOCUS_GAIN                   -> monitorTrack?.setVolume(if (monitorEnabled) 1f else 0f)
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT          -> monitorTrack?.setVolume(0f)
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> monitorTrack?.setVolume(0.2f)
+                AudioManager.AUDIOFOCUS_GAIN                    -> monitorTrack?.setVolume(if (monitorEnabled) 1f else 0f)
             }
         }
         if (Build.VERSION.SDK_INT >= 26) {
@@ -135,18 +188,19 @@ object SoftwareLoopback {
             am.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            am.requestAudioFocus(listener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            am.requestAudioFocus(listener, AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         }
     }
 
     private fun abandonAudioFocus() {
         try {
-            if (Build.VERSION.SDK_INT >= 26) focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            if (Build.VERSION.SDK_INT >= 26)
+                focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
             else @Suppress("DEPRECATION") audioManager?.abandonAudioFocus(null)
         } catch (_: Exception) {}
     }
 
-    // Monitor track — STREAM_MUSIC, fully volume-controlled, routes to your ears
     private fun buildMonitorTrack(bufSize: Int): AudioTrack? = try {
         if (Build.VERSION.SDK_INT >= 26) {
             AudioTrack.Builder()
@@ -154,34 +208,17 @@ object SoftwareLoopback {
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                 .setAudioFormat(AudioFormat.Builder()
-                    .setSampleRate(SAMPLE_RATE).setEncoding(FORMAT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setEncoding(FORMAT)   // PCM_FLOAT — no conversion ever
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                .setBufferSizeInBytes(bufSize * 2)
+                .setBufferSizeInBytes(bufSize * 4)   // float = 4 bytes per sample
                 .setTransferMode(AudioTrack.MODE_STREAM).build()
         } else {
             @Suppress("DEPRECATION")
             AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE,
-                AudioFormat.CHANNEL_OUT_MONO, FORMAT, bufSize * 2, AudioTrack.MODE_STREAM)
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,   // pre-API26 fallback
+                bufSize * 2, AudioTrack.MODE_STREAM)
         }
     } catch (e: Exception) { Log.e(TAG, "buildMonitorTrack: $e"); null }
-
-    // Routing track — VOICE_COMMUNICATION, always volume=0 — Discord reads its session
-    private fun buildRoutingTrack(bufSize: Int): AudioTrack? = try {
-        if (Build.VERSION.SDK_INT >= 26) {
-            AudioTrack.Builder()
-                .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                .setAudioFormat(AudioFormat.Builder()
-                    .setSampleRate(SAMPLE_RATE).setEncoding(FORMAT)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                .setBufferSizeInBytes(bufSize * 2)
-                .setTransferMode(AudioTrack.MODE_STREAM).build()
-        } else {
-            @Suppress("DEPRECATION")
-            AudioTrack(AudioManager.STREAM_VOICE_CALL, SAMPLE_RATE,
-                AudioFormat.CHANNEL_OUT_MONO, FORMAT, bufSize * 2, AudioTrack.MODE_STREAM)
-        }
-    } catch (e: Exception) { Log.e(TAG, "buildRoutingTrack: $e"); null }
-
 }

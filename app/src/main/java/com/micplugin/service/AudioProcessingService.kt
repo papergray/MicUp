@@ -125,19 +125,19 @@ class AudioProcessingService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // Wire processed audio from C++ → SoftwareLoopback monitor
+        audioEngine.setMonitorCallback { buf: FloatArray, size: Int -> SoftwareLoopback.writeProcessed(buf, size) }
         val started = audioEngine.start()
         if (!started) {
             SoftwareLoopback.start(this)
             startStatusUpdates()
-            audioEngine.setMonitorCallback { buf, size -> SoftwareLoopback.writeProcessed(buf, size) }
+            audioEngine.setMonitorCallback { buf: FloatArray, size: Int -> SoftwareLoopback.writeProcessed(buf, size) }
         } else {
             startStatusUpdates()
         }
         if (!SoftwareLoopback.isRunning) {
             SoftwareLoopback.start(this)
         }
-        // Wire OboeEngine output → SoftwareLoopback (processed audio only, one pipeline)
-        audioEngine.setMonitorCallback { buf, size -> SoftwareLoopback.writeProcessed(buf, size) }
         return START_STICKY
     }
 

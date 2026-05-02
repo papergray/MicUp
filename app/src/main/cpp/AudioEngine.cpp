@@ -15,6 +15,44 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+// ── JNI monitor callback globals (file scope, outside micplugin namespace) ──
+#include <vector>
+#include <jni.h>
+
+static JavaVM*   gJvm             = nullptr;
+static jobject   gMonitorCallback = nullptr;
+static jmethodID gInvokeMethod    = nullptr;
+
+// Called from audio thread — zero-copy float pass, no conversion
+static void dispatchToKotlin(const float* buf, int32_t numFrames) {
+    if (!gJvm || !gMonitorCallback || !gInvokeMethod) return;
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    jint status = gJvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    if (status == JNI_EDETACHED) {
+        gJvm->AttachCurrentThread(&env, nullptr);
+        attached = true;
+    }
+    if (!env) return;
+
+    // Pass float[] directly — no short conversion, no quality loss, no clipping risk
+    jfloatArray arr = env->NewFloatArray(numFrames);
+    if (arr) {
+        env->SetFloatArrayRegion(arr, 0, numFrames, buf);
+        jobject jSize = env->CallStaticObjectMethod(
+            env->FindClass("java/lang/Integer"),
+            env->GetStaticMethodID(env->FindClass("java/lang/Integer"),
+                "valueOf", "(I)Ljava/lang/Integer;"),
+            (jint)numFrames
+        );
+        env->CallObjectMethod(gMonitorCallback, gInvokeMethod, arr, jSize);
+        env->DeleteLocalRef(arr);
+        if (jSize) env->DeleteLocalRef(jSize);
+    }
+    if (attached) gJvm->DetachCurrentThread();
+}
+
+
 namespace micplugin {
 
 // ─── BiquadFilter coefficient computation ────────────────────────────────────
@@ -200,10 +238,12 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     // Measure output level
     measureLevel(out, numFrames, params_.outputLevelDb);
 
-    // Silence output if monitoring (sidetone) is disabled
-    if (!params_.monitoringEnabled.load(std::memory_order_relaxed)) {
-        std::fill(out, out + numFrames, 0.0f);
-    }
+    // Always dispatch processed audio to Kotlin monitor (independent of native output)
+    dispatchToKotlin(out, numFrames);
+
+    // Native output: always silence it — Kotlin SoftwareLoopback handles monitor playback
+    // This avoids double-play through headphones
+    std::fill(out, out + numFrames, 0.0f);
 
     return oboe::DataCallbackResult::Continue;
 }
@@ -444,9 +484,6 @@ Java_com_micplugin_audio_OboeEngine_nativeSetParam(
             if (paramId==0) p.pitchSemitones.store(value, std::memory_order_relaxed);
             else if (paramId==1) p.pitchEnabled.store(value > 0.5f, std::memory_order_relaxed);
             break;
-        case 98: // Monitoring (hear yourself)
-            p.monitoringEnabled.store(value > 0.5f, std::memory_order_relaxed);
-            break;
         case 99: // Master bypass
             p.masterBypass.store(value > 0.5f, std::memory_order_relaxed);
             break;
@@ -517,4 +554,23 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
         default: json = "[]"; break;
     }
     return env->NewStringUTF(json.c_str());
+}
+
+// ── JNI: Register monitor callback from Kotlin ────────────────────────────
+JNIEXPORT void JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeSetMonitorCallback(
+    JNIEnv* env, jobject, jlong /*handle*/, jobject callback) {
+
+    env->GetJavaVM(&gJvm);
+
+    // Release old global ref
+    if (gMonitorCallback) { env->DeleteGlobalRef(gMonitorCallback); gMonitorCallback = nullptr; }
+
+    if (callback) {
+        gMonitorCallback = env->NewGlobalRef(callback);
+        jclass cls = env->GetObjectClass(gMonitorCallback);
+        // Kotlin lambda is Function2<ShortArray,Int,Unit> — erased to (Object,Object)->Object
+        gInvokeMethod = env->GetMethodID(cls, "invoke",
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    }
 }

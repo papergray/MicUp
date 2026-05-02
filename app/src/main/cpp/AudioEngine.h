@@ -89,8 +89,7 @@ struct EffectParams {
     // Master bypass
     std::atomic<bool>  masterBypass{false};
 
-    // Monitoring — plays processed audio back through speaker/headphones
-    std::atomic<bool>  monitoringEnabled{true};
+    // Monitoring now handled in Kotlin via JNI callback — param 98 unused
 
     EffectParams() {
         for (auto& g : eqGain) g.store(0.0f, std::memory_order_relaxed);
