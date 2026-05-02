@@ -164,6 +164,7 @@ public:
     void setPluginHost(PluginHost* h) { pluginHost_ = h; }
 
     int32_t sampleRate()    const { return sampleRate_; }
+    void setOutputVolume(float v) { if (outputStream_) outputStream_->setVolume(v); }
     int32_t framesPerBurst() const { return framesPerBurst_; }
 
     // oboe callbacks
