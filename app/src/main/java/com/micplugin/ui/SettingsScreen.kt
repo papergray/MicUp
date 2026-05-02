@@ -123,14 +123,19 @@ fun SettingsScreen(navController: NavController, vm: AudioViewModel = hiltViewMo
                 }
 
                 VirtualMicTier.values().forEach { t ->
+                    val reason = vm.checkTierAvailability(t)
                     TierRow(
-                        tier     = t,
-                        isActive = t == tier,
-                        isLocked = when (t) {
-                            VirtualMicTier.SHIZUKU_ADB -> shizukuState != ShizukuState.READY
-                            VirtualMicTier.ROOT_MAGISK -> !com.micplugin.service.VirtualMicService.isRooted()
-                            else -> false
-                        }
+                        tier              = t,
+                        isActive          = t == tier,
+                        unavailableReason = reason,
+                        onClick           = {
+                            if (t == VirtualMicTier.SHIZUKU_ADB &&
+                                shizukuState == ShizukuState.NEED_GRANT) {
+                                vm.requestShizukuPermission()
+                            } else {
+                                vm.setTier(t)
+                            }
+                        },
                     )
                 }
             }
@@ -254,17 +259,55 @@ private fun SettingsActionRow(label: String, icon: androidx.compose.ui.graphics.
 }
 
 @Composable
-private fun TierRow(tier: VirtualMicTier, isActive: Boolean, isLocked: Boolean) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = isActive, onClick = null,
-            colors = RadioButtonDefaults.colors(selectedColor = Color(tier.badgeColorHex)))
-        Spacer(Modifier.width(6.dp))
-        Column(Modifier.weight(1f)) {
-            Text(tier.displayName, fontSize = 12.sp,
-                color = if (isActive) Color(tier.badgeColorHex) else StudioColors.TextMuted)
+private fun TierRow(
+    tier: VirtualMicTier,
+    isActive: Boolean,
+    unavailableReason: String?,
+    onClick: () -> Unit,
+) {
+    val available = unavailableReason == null
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = available || isActive) { if (available) onClick() }
+            .padding(vertical = 2.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected  = isActive,
+                onClick   = if (available) onClick else null,
+                colors    = RadioButtonDefaults.colors(
+                    selectedColor   = Color(tier.badgeColorHex),
+                    unselectedColor = if (available) StudioColors.TextMuted
+                                     else StudioColors.TextMuted.copy(alpha = 0.35f),
+                ),
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                tier.displayName, fontSize = 12.sp,
+                color = when {
+                    isActive   -> Color(tier.badgeColorHex)
+                    !available -> StudioColors.TextMuted.copy(alpha = 0.4f)
+                    else       -> StudioColors.TextMuted
+                },
+                modifier = Modifier.weight(1f),
+            )
+            if (!available) {
+                Icon(
+                    Icons.Default.Lock, contentDescription = null,
+                    tint     = StudioColors.TextMuted.copy(alpha = 0.5f),
+                    modifier = Modifier.size(13.dp),
+                )
+            }
         }
-        if (isLocked) {
-            Icon(Icons.Default.Lock, null, tint = StudioColors.TextMuted, modifier = Modifier.size(14.dp))
+        if (unavailableReason != null) {
+            Text(
+                unavailableReason,
+                fontSize   = 9.sp,
+                color      = Color(0xFFFF6B6B).copy(alpha = 0.85f),
+                lineHeight = 12.sp,
+                modifier   = Modifier.padding(start = 48.dp, bottom = 2.dp),
+            )
         }
     }
 }

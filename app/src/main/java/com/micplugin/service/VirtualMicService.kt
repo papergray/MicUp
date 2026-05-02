@@ -5,8 +5,12 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -100,7 +104,24 @@ class VirtualMicService @Inject constructor(
     private val _activeTier = MutableStateFlow(VirtualMicTier.VOIP_STREAM)
     val activeTier: StateFlow<VirtualMicTier> = _activeTier
 
-    init { detectAndSetBestTier() }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // Initial best-effort detection (Shizuku may not be ready yet — see collector below)
+        detectAndSetBestTier()
+        // React whenever Shizuku state changes (fixes race: init runs before shizukuManager.init())
+        scope.launch {
+            shizukuManager.state.collect { state ->
+                if (state == ShizukuState.READY &&
+                    _activeTier.value != VirtualMicTier.ROOT_MAGISK &&
+                    _activeTier.value != VirtualMicTier.SHIZUKU_ADB
+                ) {
+                    Log.i(TAG, "Shizuku became READY — upgrading tier to SHIZUKU_ADB")
+                    onShizukuReady()
+                }
+            }
+        }
+    }
 
     private fun detectAndSetBestTier() {
         _activeTier.value = when {
@@ -130,6 +151,34 @@ class VirtualMicService @Inject constructor(
 
     fun getActiveTier(): VirtualMicTier = _activeTier.value
     fun getStatusDescription(): String = _activeTier.value.description
+
+    /**
+     * Returns null if the tier is available, or a human-readable reason string if not.
+     */
+    fun checkTierAvailability(tier: VirtualMicTier): String? = when (tier) {
+        VirtualMicTier.VOIP_STREAM      -> null
+        VirtualMicTier.MEDIA_PROJECTION -> if (Build.VERSION.SDK_INT >= 29) null
+                                           else "Requires Android 10+"
+        VirtualMicTier.SHIZUKU_ADB      -> when (shizukuManager.state.value) {
+            ShizukuState.READY      -> null
+            ShizukuState.NEED_GRANT -> "Shizuku is running but permission hasn't been granted — tap Grant in Settings"
+            ShizukuState.UNAVAILABLE -> "Shizuku is not running — start it via Wireless Debugging or ADB"
+        }
+        VirtualMicTier.ROOT_MAGISK      -> if (isRooted()) null else "Device is not rooted"
+    }
+
+    /**
+     * Manually select a tier. No-ops silently if the tier isn't available.
+     * Returns the unavailability reason if blocked, null on success.
+     */
+    fun setTier(tier: VirtualMicTier): String? {
+        val reason = checkTierAvailability(tier)
+        if (reason != null) return reason
+        _activeTier.value = tier
+        if (tier == VirtualMicTier.SHIZUKU_ADB) activateShizukuRouting()
+        Log.i(TAG, "Tier manually set to $tier")
+        return null
+    }
 
     fun requestUpgrade(activity: Activity) {
         when (_activeTier.value) {

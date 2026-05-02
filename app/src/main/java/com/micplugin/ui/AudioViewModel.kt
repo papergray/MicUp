@@ -269,6 +269,14 @@ class AudioViewModel @Inject constructor(
 
     fun requestShizukuPermission() { shizukuManager.requestPermission() }
 
+    /** Returns null if available, or a reason string if not. */
+    fun checkTierAvailability(tier: com.micplugin.service.VirtualMicTier): String? =
+        virtualMicService.checkTierAvailability(tier)
+
+    /** Manually switch to a tier. Returns unavailability reason or null on success. */
+    fun setTier(tier: com.micplugin.service.VirtualMicTier): String? =
+        virtualMicService.setTier(tier)
+
     val lv2Paths  = pluginPathPrefs.lv2Paths
     val clapPaths = pluginPathPrefs.clapPaths
     val vst3Paths = pluginPathPrefs.vst3Paths
