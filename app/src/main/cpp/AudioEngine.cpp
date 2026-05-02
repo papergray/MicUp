@@ -537,6 +537,23 @@ Java_com_micplugin_audio_OboeEngine_nativeGetFramesPerBurst(JNIEnv*, jobject, jl
     return reinterpret_cast<AudioEngine*>(handle)->framesPerBurst();
 }
 
+JNIEXPORT void JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeSetMonitorCallback(
+    JNIEnv* env, jobject /*thiz*/, jlong /*handle*/, jobject callback) {
+
+    env->GetJavaVM(&gJvm);
+
+    if (gMonitorCallback) { env->DeleteGlobalRef(gMonitorCallback); gMonitorCallback = nullptr; }
+
+    if (callback) {
+        gMonitorCallback = env->NewGlobalRef(callback);
+        jclass cls = env->GetObjectClass(gMonitorCallback);
+        gInvokeMethod = env->GetMethodID(cls, "invoke",
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    }
+}
+
+
 } // extern "C"
 
 JNIEXPORT jstring JNICALL
@@ -556,21 +573,4 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
     return env->NewStringUTF(json.c_str());
 }
 
-// ── JNI: Register monitor callback from Kotlin ────────────────────────────
-JNIEXPORT void JNICALL
-Java_com_micplugin_audio_OboeEngine_nativeSetMonitorCallback(
-    JNIEnv* env, jobject, jlong /*handle*/, jobject callback) {
-
-    env->GetJavaVM(&gJvm);
-
-    // Release old global ref
-    if (gMonitorCallback) { env->DeleteGlobalRef(gMonitorCallback); gMonitorCallback = nullptr; }
-
-    if (callback) {
-        gMonitorCallback = env->NewGlobalRef(callback);
-        jclass cls = env->GetObjectClass(gMonitorCallback);
-        // Kotlin lambda is Function2<ShortArray,Int,Unit> — erased to (Object,Object)->Object
-        gInvokeMethod = env->GetMethodID(cls, "invoke",
-            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
-    }
 }
