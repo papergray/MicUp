@@ -554,7 +554,6 @@ Java_com_micplugin_audio_OboeEngine_nativeSetMonitorCallback(
 }
 
 
-} // extern "C"
 
 JNIEXPORT jstring JNICALL
 Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
@@ -573,4 +572,4 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
     return env->NewStringUTF(json.c_str());
 }
 
-}
+} // extern "C"
