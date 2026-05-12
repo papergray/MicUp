@@ -81,7 +81,9 @@ class AudioProcessingService : Service() {
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(mainIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopIntent)
@@ -91,7 +93,7 @@ class AudioProcessingService : Service() {
     private fun createNotificationChannel() {
         val ch = NotificationChannel(
             CHANNEL_ID, "MicUp Audio",
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "Real-time audio processing service"
             setShowBadge(false)
@@ -120,6 +122,8 @@ class AudioProcessingService : Service() {
         acquireWakeLock()
     }
 
+    private var updatesStarted = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopSelf()
@@ -133,6 +137,7 @@ class AudioProcessingService : Service() {
     }
 
     override fun onDestroy() {
+        updatesStarted = false
         scope.cancel()
         audioEngine.stop()
         SoftwareLoopback.stop()

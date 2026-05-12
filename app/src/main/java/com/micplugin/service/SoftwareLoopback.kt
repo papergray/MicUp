@@ -45,13 +45,16 @@ object SoftwareLoopback {
 
         monitorTrack!!.play()
         monitorTrack!!.setVolume(if (monitorEnabled) 1f else 0f)
+        if (android.os.Build.VERSION.SDK_INT >= 23) monitorTrack!!.preferredDevice = null
 
-        // Kill hardware sidetone path without affecting recording or routing
+        // Suppress physical mic playback path — processed path is the only output
         try {
             @Suppress("DEPRECATION")
             audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
             audioManager?.isSpeakerphoneOn = false
+            // Mute mic playback (not recording) — stops raw voice leaking to output
+            audioManager?.isMicrophoneMute = false  // keep recording alive
         } catch (_: Exception) {}
 
         running = true
