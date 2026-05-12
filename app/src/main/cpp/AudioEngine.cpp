@@ -607,4 +607,12 @@ Java_com_micplugin_audio_OboeEngine_nativeGetPluginParams(
 
 
 
+JNIEXPORT jint JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeGetInputSessionId(
+    JNIEnv*, jobject, jlong handle) {
+    auto* engine = reinterpret_cast<micplugin::AudioEngine*>(handle);
+    return engine ? engine->getInputSessionId() : -1;
+}
+
+
 } // extern "C"

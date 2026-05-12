@@ -46,6 +46,14 @@ object SoftwareLoopback {
         monitorTrack!!.play()
         monitorTrack!!.setVolume(if (monitorEnabled) 1f else 0f)
 
+        // Kill hardware sidetone path without affecting recording or routing
+        try {
+            @Suppress("DEPRECATION")
+            audioManager?.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            audioManager?.isSpeakerphoneOn = false
+        } catch (_: Exception) {}
+
         running = true
         queue.clear()
 
@@ -84,7 +92,10 @@ object SoftwareLoopback {
         try { monitorTrack?.stop(); monitorTrack?.release() } catch (_: Exception) {}
         monitorTrack = null
         abandonAudioFocus()
-        try { @Suppress("DEPRECATION") audioManager?.mode = AudioManager.MODE_NORMAL } catch (_: Exception) {}
+        try {
+            @Suppress("DEPRECATION") audioManager?.mode = AudioManager.MODE_NORMAL
+            @Suppress("DEPRECATION") audioManager?.isSpeakerphoneOn = false
+        } catch (_: Exception) {}
         Log.i(TAG, "SoftwareLoopback stopped")
     }
 

@@ -48,6 +48,8 @@ class OboeEngine @Inject constructor() {
         if (engineHandle != 0L) nativeUnloadPlugin(engineHandle, pluginHandle)
     }
 
+    fun getInputSessionId(): Int = if (engineHandle != 0L) nativeGetInputSessionId(engineHandle) else -1
+
     fun getPluginParams(pluginHandle: Long): String =
         if (engineHandle != 0L) nativeGetPluginParams(engineHandle, pluginHandle) else "[]"
 
@@ -87,5 +89,6 @@ class OboeEngine @Inject constructor() {
     private external fun nativeSetMonitorCallback(handle: Long, callback: Any?)
     private external fun nativeSetInjectionMode(handle: Long, enabled: Boolean)
     private external fun nativeGetSampleRate(handle: Long): Int
+    private external fun nativeGetInputSessionId(handle: Long): Int
     private external fun nativeGetFramesPerBurst(handle: Long): Int
 }
