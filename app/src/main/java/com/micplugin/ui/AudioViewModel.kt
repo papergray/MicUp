@@ -301,9 +301,19 @@ class AudioViewModel @Inject constructor(
     private val _monitoringEnabled = MutableStateFlow(true)
     val monitoringEnabled: kotlinx.coroutines.flow.StateFlow<Boolean> = _monitoringEnabled
 
-    fun setMonitoring(enabled: Boolean) {
+    fun setMonitoring(context: android.content.Context, enabled: Boolean) {
         _monitoringEnabled.value = enabled
         SoftwareLoopback.setMonitorEnabled(enabled)
+        // Remember the choice so it survives app/process restarts.
+        context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("monitor_enabled", enabled).apply()
+    }
+
+    fun loadMonitoring(context: android.content.Context) {
+        val saved = context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .getBoolean("monitor_enabled", true)
+        _monitoringEnabled.value = saved
+        SoftwareLoopback.setMonitorEnabled(saved)
     }
 
 

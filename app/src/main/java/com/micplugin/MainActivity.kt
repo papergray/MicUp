@@ -2,9 +2,12 @@ package com.micplugin
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
+import androidx.lifecycle.Lifecycle
 import android.provider.Settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -46,12 +49,17 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT <= 32) add(Manifest.permission.READ_EXTERNAL_STORAGE)
     }.toTypedArray()
 
+    // Guards so the microphone foreground service is started exactly once, and only
+    // while the app is actually in the foreground (required on Android 14+).
+    private var audioServiceStarted = false
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val allGranted = results.values.all { it }
-        if (allGranted) startAudioService()
-        requestBatteryOptimizationExemption()
+    ) { _ ->
+        // Don't start the service here: when this callback fires the app may still be
+        // behind a permission dialog / settings screen, i.e. in the background.
+        // onResume() starts it once we are back in the foreground and in an eligible state.
+        maybeStartAudioService()
     }
 
     // Shizuku permission result listener
@@ -150,13 +158,31 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    private fun startAudioService() {
+    override fun onResume() {
+        super.onResume()
+        // Starting the microphone foreground service here guarantees the app is in the
+        // foreground (RESUMED), which Android 14+ requires for a "microphone" FGS.
+        maybeStartAudioService()
+    }
+
+    private fun maybeStartAudioService() {
+        if (audioServiceStarted) return
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) return
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        audioServiceStarted = true
         AudioProcessingService.start(this)
+        // Prompt for battery-optimization exemption only once, after the service is up.
         requestBatteryOptimizationExemption()
     }
 
     private fun requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT >= 23) {
+            // Don't bother the user if the app is already exempt — otherwise the battery
+            // settings screen pops up on every launch / every time the app is reopened.
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm != null && pm.isIgnoringBatteryOptimizations(packageName)) return
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:$packageName")
             }

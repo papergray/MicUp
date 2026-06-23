@@ -113,11 +113,21 @@ class AudioProcessingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-        } else {
-            startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f))
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            } else {
+                startForeground(NOTIF_ID, buildNotification("Starting…", 0, 0f))
+            }
+        } catch (e: Exception) {
+            // Android 14+ throws SecurityException / ForegroundServiceStartNotAllowedException
+            // when a microphone foreground service is started while the app is not in an
+            // eligible (foreground) state. Fail gracefully instead of crashing the whole app;
+            // MainActivity will (re)start the service from onResume() while in the foreground.
+            android.util.Log.e("MicUp.Service", "startForeground(microphone) not allowed: $e")
+            stopSelf()
+            return
         }
         acquireWakeLock()
     }
