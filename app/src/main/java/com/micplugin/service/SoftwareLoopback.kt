@@ -167,6 +167,31 @@ object SoftwareLoopback {
         applyOutputDevice()
     }
 
+    // ── Input device enumeration (fixes #5 — external sound cards had no way to
+    //    be picked as the mic source; only the built-in mic was ever used) ─────
+
+    fun getInputDevices(context: Context): List<OutputDevice> {
+        val am = context.getSystemService(AudioManager::class.java)
+        val list = mutableListOf(OutputDevice(-1, "Auto (system default)", -1))
+        if (Build.VERSION.SDK_INT >= 23) {
+            am.getDevices(AudioManager.GET_DEVICES_INPUTS).forEach { d ->
+                val name = when (d.type) {
+                    AudioDeviceInfo.TYPE_BUILTIN_MIC       -> "Built-in Mic"
+                    AudioDeviceInfo.TYPE_WIRED_HEADSET     -> "Wired Headset Mic"
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO     -> "Bluetooth SCO Mic"
+                    AudioDeviceInfo.TYPE_BLE_HEADSET       -> "BLE Headset Mic"
+                    AudioDeviceInfo.TYPE_USB_HEADSET       -> "USB Headset Mic"
+                    AudioDeviceInfo.TYPE_USB_DEVICE        -> d.productName?.toString()?.takeIf { it.isNotBlank() } ?: "USB Audio Device"
+                    AudioDeviceInfo.TYPE_LINE_ANALOG,
+                    AudioDeviceInfo.TYPE_LINE_DIGITAL      -> d.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Line-in"
+                    else -> d.productName?.toString()?.takeIf { it.isNotBlank() } ?: return@forEach
+                }
+                list.add(OutputDevice(d.id, name, d.type))
+            }
+        }
+        return list
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private fun applyOutputDevice() {

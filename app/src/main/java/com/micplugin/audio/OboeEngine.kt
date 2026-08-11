@@ -57,6 +57,11 @@ class OboeEngine @Inject constructor() {
         if (engineHandle != 0L) nativeSetInjectionMode(engineHandle, enabled)
     }
 
+    /** deviceId: an Android AudioDeviceInfo id, or -1 for the system default mic. */
+    fun setInputDevice(deviceId: Int) {
+        if (engineHandle != 0L) nativeSetInputDevice(engineHandle, deviceId)
+    }
+
     fun setMonitorCallback(callback: ((FloatArray, Int) -> Unit)?) {
         if (engineHandle != 0L) nativeSetMonitorCallback(engineHandle, callback)
     }
@@ -88,6 +93,7 @@ class OboeEngine @Inject constructor() {
     private external fun nativeGetPluginParams(handle: Long, pluginHandle: Long): String
     private external fun nativeSetMonitorCallback(handle: Long, callback: Any?)
     private external fun nativeSetInjectionMode(handle: Long, enabled: Boolean)
+    private external fun nativeSetInputDevice(handle: Long, deviceId: Int)
     private external fun nativeGetSampleRate(handle: Long): Int
     private external fun nativeGetInputSessionId(handle: Long): Int
     private external fun nativeGetFramesPerBurst(handle: Long): Int

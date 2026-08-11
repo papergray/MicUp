@@ -344,4 +344,27 @@ class AudioViewModel @Inject constructor(
             .edit().putInt("output_device_id", deviceId).apply()
     }
 
+    // ── Input device (fixes #5 — external sound cards were stuck on the built-in mic) ──
+
+    private val _inputDevices = MutableStateFlow<List<com.micplugin.service.OutputDevice>>(emptyList())
+    val inputDevices: kotlinx.coroutines.flow.StateFlow<List<com.micplugin.service.OutputDevice>> = _inputDevices
+
+    private val _selectedInputDeviceId = MutableStateFlow(-1)
+    val selectedInputDeviceId: kotlinx.coroutines.flow.StateFlow<Int> = _selectedInputDeviceId
+
+    fun loadInputDevices(context: android.content.Context) {
+        _inputDevices.value = SoftwareLoopback.getInputDevices(context)
+        val saved = context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .getInt("input_device_id", -1)
+        _selectedInputDeviceId.value = saved
+        audioEngine.setInputDevice(saved)
+    }
+
+    fun setInputDevice(context: android.content.Context, deviceId: Int) {
+        _selectedInputDeviceId.value = deviceId
+        audioEngine.setInputDevice(deviceId)
+        context.getSharedPreferences("micup_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putInt("input_device_id", deviceId).apply()
+    }
+
 }

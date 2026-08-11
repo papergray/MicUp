@@ -130,8 +130,12 @@ bool AudioEngine::openStreams() {
     oboe::AudioStreamBuilder builder;
 
     // ─ Input stream (microphone capture) ─────────────────────────────────────
+    // deviceId defaults to oboe::kUnspecified (system default mic) unless the user picked
+    // a specific input (e.g. a USB sound card) in Settings — see setInputDeviceId().
+    int32_t preferredInputId = inputDeviceId_.load(std::memory_order_relaxed);
     auto result = builder
         .setDirection(oboe::Direction::Input)
+        ->setDeviceId(preferredInputId)
         ->setInputPreset(oboe::InputPreset::VoiceCommunication)
         ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
         ->setSharingMode(oboe::SharingMode::Exclusive)
@@ -139,6 +143,15 @@ bool AudioEngine::openStreams() {
         ->setChannelCount(1)
         ->setSampleRate(48000)
         ->openStream(inputStream_);
+
+    if (result != oboe::Result::OK && preferredInputId != oboe::kUnspecified) {
+        // The chosen device may have been unplugged/unavailable — fall back to the
+        // system default rather than leaving the engine unable to start at all.
+        LOGE("Failed to open input stream on device %d: %s — retrying with default device",
+             preferredInputId, oboe::convertToText(result));
+        builder.setDeviceId(oboe::kUnspecified);
+        result = builder.openStream(inputStream_);
+    }
 
     if (result != oboe::Result::OK) {
         LOGE("Failed to open input stream: %s", oboe::convertToText(result));
@@ -572,6 +585,14 @@ Java_com_micplugin_audio_OboeEngine_nativeSetInjectionMode(
     auto* engine = reinterpret_cast<AudioEngine*>(handle);
     engine->params().injectionMode.store(enabled == JNI_TRUE, std::memory_order_relaxed);
     LOGI("Injection mode: %s", enabled ? "ON (Shizuku/Root)" : "OFF (software loopback)");
+}
+
+JNIEXPORT void JNICALL
+Java_com_micplugin_audio_OboeEngine_nativeSetInputDevice(
+    JNIEnv*, jobject, jlong handle, jint deviceId) {
+    auto* engine = reinterpret_cast<micplugin::AudioEngine*>(handle);
+    if (engine) engine->setInputDeviceId(deviceId);
+    LOGI("Input device set to %d", deviceId);
 }
 
 JNIEXPORT void JNICALL

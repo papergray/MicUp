@@ -167,6 +167,19 @@ public:
     int32_t getInputSessionId() const { return inputStream_ ? inputStream_->getSessionId() : -1; }
     int32_t framesPerBurst() const { return framesPerBurst_; }
 
+    // Preferred input device (Android AudioDeviceInfo id), oboe::kUnspecified (-1) = system default.
+    // Fixes #5: previously the input stream always opened on whatever the OS considered the
+    // default mic, so an external/USB sound card's input could never be selected even though
+    // its output could. Safe to call while running — reopens the streams to apply.
+    void setInputDeviceId(int32_t deviceId) {
+        inputDeviceId_.store(deviceId, std::memory_order_relaxed);
+        if (running_.load(std::memory_order_acquire)) {
+            closeStreams();
+            openStreams();
+        }
+    }
+    int32_t getInputDeviceId() const { return inputDeviceId_.load(std::memory_order_relaxed); }
+
     // oboe callbacks
     oboe::DataCallbackResult onAudioReady(
         oboe::AudioStream* stream, void* data, int32_t frames) override;
@@ -194,6 +207,10 @@ private:
     // Streams
     std::shared_ptr<oboe::AudioStream> inputStream_, outputStream_;
     std::atomic<bool> running_{false};
+
+    // Preferred input device id — see setInputDeviceId() above. oboe::kUnspecified means
+    // "let the system pick", which preserves the original default behavior.
+    std::atomic<int32_t> inputDeviceId_{oboe::kUnspecified};
 
     // Restart loop protection
     static constexpr int kMaxRestarts = 5;

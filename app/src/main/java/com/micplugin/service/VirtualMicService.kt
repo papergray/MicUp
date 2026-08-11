@@ -99,6 +99,31 @@ class VirtualMicService @Inject constructor(
                 out
             } catch (_: Exception) { null }
         }
+
+        // ── ALSA loopback support probe, root path (fixes #2) ───────────────────
+        // Same rationale as ShizukuManager.hasAlsaLoopbackSupport(): being rooted and having
+        // the Magisk module "installed" doesn't guarantee the kernel actually exposes a
+        // loopback card (some MediaTek chipsets ship without snd-aloop support at all, and a
+        // module install typically also needs a reboot to take effect). Check the ground
+        // truth in /proc/asound/cards rather than trusting isRooted() alone.
+        private var rootLoopbackCache: Boolean? = null
+        private var rootLoopbackCacheAt: Long = 0L
+
+        fun hasAlsaLoopbackSupportRoot(forceRecheck: Boolean = false): Boolean {
+            val now = System.currentTimeMillis()
+            if (!forceRecheck) {
+                rootLoopbackCache?.let { if (now - rootLoopbackCacheAt < 5000) return it }
+            }
+            // Same rationale as ShizukuManager.hasAlsaLoopbackSupport(): try loading the
+            // module first so a device that supports it but hasn't loaded it yet isn't
+            // misreported as unsupported. Idempotent if already loaded.
+            execRoot("modprobe snd-aloop pcm_substreams=2 2>&1 || insmod /system/lib/modules/snd-aloop.ko pcm_substreams=2 2>&1")
+            val out = execRoot("cat /proc/asound/cards 2>/dev/null")
+            val supported = out?.contains("Loopback", ignoreCase = true) == true
+            rootLoopbackCache = supported
+            rootLoopbackCacheAt = now
+            return supported
+        }
     }
 
     private val _activeTier = MutableStateFlow(VirtualMicTier.VOIP_STREAM)
@@ -142,11 +167,27 @@ class VirtualMicService @Inject constructor(
         }
     }
 
-    private fun activateShizukuRouting() {
-        val loaded = shizukuManager.loadAlsaLoopback()
-        Log.i(TAG, "ALSA loopback loaded: $loaded")
-        shizukuManager.routeToLoopback()
+    /**
+     * Returns true if Shizuku-level ALSA loopback routing is actually working, false if this
+     * device's kernel doesn't support it — in which case the tier is dropped back to
+     * MEDIA_PROJECTION (Software Loopback), which works on every device. See #2: previously
+     * this always "succeeded" from the app's point of view — the monitor kept working, so the
+     * user had no way to know other apps were still hearing dry/unprocessed audio.
+     */
+    private fun activateShizukuRouting(): Boolean {
+        // hasAlsaLoopbackSupport() attempts modprobe/insmod itself and verifies against
+        // /proc/asound/cards — the actual ground truth, rather than trusting the modprobe
+        // command's exit text the way the old code did.
+        val working = shizukuManager.hasAlsaLoopbackSupport(forceRecheck = true)
+        val routed = if (working) shizukuManager.routeToLoopback() else false
         shizukuManager.setAppOpsMicDefault(context.packageName)
+        Log.i(TAG, "ALSA loopback kernel support=$working routed=$routed")
+        if (!working || !routed) {
+            Log.w(TAG, "ALSA loopback not available on this device's kernel (missing snd-aloop?) " +
+                    "— falling back to Software Loopback")
+            _activeTier.value = VirtualMicTier.MEDIA_PROJECTION
+        }
+        return working && routed
     }
 
     fun getActiveTier(): VirtualMicTier = _activeTier.value
@@ -160,11 +201,16 @@ class VirtualMicService @Inject constructor(
         VirtualMicTier.MEDIA_PROJECTION -> if (Build.VERSION.SDK_INT >= 29) null
                                            else "Requires Android 10+"
         VirtualMicTier.SHIZUKU_ADB      -> when (shizukuManager.state.value) {
-            ShizukuState.READY      -> null
-            ShizukuState.NEED_GRANT -> "Shizuku is running but permission hasn't been granted — tap Grant in Settings"
+            ShizukuState.READY       -> if (shizukuManager.hasAlsaLoopbackSupport()) null
+                                         else "Shizuku is ready, but this device's kernel has no ALSA loopback (snd-aloop) support — use Software Loopback instead"
+            ShizukuState.NEED_GRANT  -> "Shizuku is running but permission hasn't been granted — tap Grant in Settings"
             ShizukuState.UNAVAILABLE -> "Shizuku is not running — start it via Wireless Debugging or ADB"
         }
-        VirtualMicTier.ROOT_MAGISK      -> if (isRooted()) null else "Device is not rooted"
+        VirtualMicTier.ROOT_MAGISK      -> when {
+            !isRooted()                        -> "Device is not rooted"
+            !hasAlsaLoopbackSupportRoot()       -> "Rooted, but no ALSA loopback device found — install the module and reboot, or this chipset's kernel may not support snd-aloop at all"
+            else                                -> null
+        }
     }
 
     /**

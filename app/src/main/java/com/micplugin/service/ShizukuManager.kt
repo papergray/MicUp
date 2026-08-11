@@ -151,4 +151,33 @@ class ShizukuManager @Inject constructor() {
     }
 
     val isReady: Boolean get() = _state.value == ShizukuState.READY
+
+    // ── ALSA loopback support probe (fixes #2) ──────────────────────────────────
+    // On some kernels (seen on MediaTek MT6789 e.g. Infinix Note 30) snd-aloop can't be
+    // loaded at all — modprobe/insmod "succeed" in the sense of not throwing, but no
+    // loopback card ever shows up, so processed audio never actually reaches other apps
+    // even though everything looks fine locally (the on-device monitor still works, since
+    // that path doesn't depend on the kernel module at all). Previously this failure was
+    // invisible: loadAlsaLoopback()'s return value was logged but never acted on. This
+    // probes /proc/asound/cards directly, which is the ground truth for whether the
+    // loopback device actually exists.
+    private var loopbackSupportCache: Boolean? = null
+    private var loopbackSupportCacheAt: Long = 0L
+
+    fun hasAlsaLoopbackSupport(forceRecheck: Boolean = false): Boolean {
+        val now = System.currentTimeMillis()
+        if (!forceRecheck) {
+            loopbackSupportCache?.let { if (now - loopbackSupportCacheAt < 5000) return it }
+        }
+        // Attempt the load first — on most devices the card only appears in
+        // /proc/asound/cards *after* modprobe/insmod has run at least once, so checking
+        // before that would falsely read as "unsupported" even on capable hardware.
+        // This is idempotent: harmless to call again if already loaded.
+        loadAlsaLoopback()
+        val out = execWithFallback("cat /proc/asound/cards 2>/dev/null")
+        val supported = out?.contains("Loopback", ignoreCase = true) == true
+        loopbackSupportCache = supported
+        loopbackSupportCacheAt = now
+        return supported
+    }
 }
