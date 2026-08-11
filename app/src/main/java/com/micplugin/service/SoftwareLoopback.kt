@@ -37,6 +37,10 @@ object SoftwareLoopback {
         if (running) return
         audioManager = context.getSystemService(AudioManager::class.java)
 
+        // Respect the persisted monitor on/off choice on (re)start, even before the UI loads.
+        monitorEnabled = context.getSharedPreferences("micup_prefs", Context.MODE_PRIVATE)
+            .getBoolean("monitor_enabled", true)
+
         val minBuf = AudioTrack.getMinBufferSize(SAMPLE_RATE,
             AudioFormat.CHANNEL_OUT_MONO, FORMAT).coerceAtLeast(4096)
 

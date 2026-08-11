@@ -41,6 +41,9 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
     var showSaveDialog by remember { mutableStateOf(false) }
     var presetName     by remember { mutableStateOf("") }
 
+    // Restore the saved monitor on/off choice so it isn't reset to "on" on every launch.
+    LaunchedEffect(Unit) { vm.loadMonitoring(context) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -188,7 +191,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                 }
                 Switch(
                     checked = monitoring,
-                    onCheckedChange = { vm.setMonitoring(it) },
+                    onCheckedChange = { vm.setMonitoring(context, it) },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor   = Color.White,
                         checkedTrackColor   = StudioColors.Accent,

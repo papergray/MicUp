@@ -241,9 +241,13 @@ oboe::DataCallbackResult AudioEngine::onAudioReady(
     // Always dispatch processed audio to Kotlin monitor (for SoftwareLoopback/metering)
     dispatchToKotlin(out, numFrames);
 
-
-
-
+    // The device output stream must stay silent. The audible "monitor" is produced by
+    // SoftwareLoopback's AudioTrack, which is user-toggleable and routed to the chosen
+    // output device. Leaving the processed mic in `out` here would play it to the
+    // speaker/earpiece unconditionally - i.e. you always hear yourself, even with the
+    // monitor switched off. dispatchToKotlin() already copied the buffer, so zeroing it
+    // now does not affect the virtual-mic / loopback path.
+    std::fill(out, out + numFrames, 0.0f);
 
     return oboe::DataCallbackResult::Continue;
 }
