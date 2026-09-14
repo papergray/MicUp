@@ -10,6 +10,7 @@ serialization = "1.6.2"
 activity-compose = "1.8.2"
 navigation = "2.7.6"
 hilt-navigation = "1.1.0"
+ktor = "2.3.6"
 
 [libraries]
 # Compose
@@ -42,8 +43,11 @@ serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serializ
 # Navigation
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 
-# Root Detection
-# Root detection is handled inline — no external dependency needed
+# HTTP Client (Ktor)
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
+ktor-client-serialization = { group = "io.ktor", name = "ktor-client-serialization", version.ref = "ktor" }
+ktor-client-json = { group = "io.ktor", name = "ktor-client-json", version.ref = "ktor" }
 
 # Core
 core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.12.0" }

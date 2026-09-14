@@ -24,6 +24,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.micplugin.plugin.PluginImporter
+import com.micplugin.rvc.RvcScreen
 import com.micplugin.service.AudioProcessingService
 import com.micplugin.service.ShizukuManager
 import com.micplugin.service.ShizukuState
@@ -88,6 +89,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         NavHost(navController, startDestination = "main") {
                             composable("main") { MainScreen(navController) }
+                            composable("rvc") { RvcScreen(navController) }
                             composable("plugin_browser") { PluginBrowserScreen(navController) }
                             composable(
                                 "plugin_editor/{slotId}",

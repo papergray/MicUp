@@ -129,6 +129,12 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
 
+    // HTTP Client (Ktor) for Kaggle API
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.serialization)
+    implementation(libs.ktor.client.json)
+
     // Core
     implementation(libs.core.ktx)
 
