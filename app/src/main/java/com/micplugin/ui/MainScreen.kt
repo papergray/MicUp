@@ -23,23 +23,22 @@ import com.micplugin.service.VirtualMicTier
 
 @Composable
 fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel()) {
-    val context     = LocalContext.current
-    val levels      by vm.levels.collectAsState()
-    val status      by vm.engineStatus.collectAsState()
-    val gateState   by vm.gateState.collectAsState()
-    val eqState     by vm.eqState.collectAsState()
-    val compState   by vm.compState.collectAsState()
+    val context = LocalContext.current
+    val levels by vm.levels.collectAsState()
+    val status by vm.engineStatus.collectAsState()
+    val gateState by vm.gateState.collectAsState()
+    val eqState by vm.eqState.collectAsState()
+    val compState by vm.compState.collectAsState()
     val reverbState by vm.reverbState.collectAsState()
-    val pitchState  by vm.pitchState.collectAsState()
-    val bypass      by vm.masterBypass.collectAsState()
-    val monitoring  by vm.monitoringEnabled.collectAsState()
-    val presets     by vm.presets.collectAsState()
+    val pitchState by vm.pitchState.collectAsState()
+    val bypass by vm.masterBypass.collectAsState()
+    val monitoring by vm.monitoringEnabled.collectAsState()
+    val presets by vm.presets.collectAsState()
     val selectedPreset by vm.selectedPreset.collectAsState()
     val pluginSlots by vm.pluginSlots.collectAsState()
-    val tier        by vm.virtualMicTier.collectAsState()
-
+    val tier by vm.virtualMicTier.collectAsState()
     var showSaveDialog by remember { mutableStateOf(false) }
-    var presetName     by remember { mutableStateOf("") }
+    var presetName by remember { mutableStateOf("") }
 
     // Restore the saved monitor on/off choice so it isn't reset to "on" on every launch.
     LaunchedEffect(Unit) { vm.loadMonitoring(context) }
@@ -66,9 +65,11 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                 fontSize = 18.sp,
                 modifier = Modifier.weight(1f),
             )
+
             // Virtual mic tier badge
             VirtualMicBadge(tier)
             Spacer(Modifier.width(10.dp))
+
             // Power button
             IconButton(
                 onClick = { vm.toggleEngine(context) },
@@ -84,7 +85,9 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                     tint = if (status.isRunning) Color.White else StudioColors.TextMuted,
                 )
             }
+
             Spacer(Modifier.width(6.dp))
+
             // Settings
             IconButton(onClick = { navController.navigate("settings") }) {
                 Icon(Icons.Default.Settings, "Settings", tint = StudioColors.TextMuted)
@@ -96,25 +99,25 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
             items(presets) { preset ->
                 val isSelected = selectedPreset?.name == preset.name
                 FilterChip(
-                    selected  = isSelected,
-                    onClick   = { vm.applyPreset(preset) },
-                    label     = { Text(preset.name, fontSize = 10.sp) },
-                    colors    = FilterChipDefaults.filterChipColors(
+                    selected = isSelected,
+                    onClick = { vm.applyPreset(preset) },
+                    label = { Text(preset.name, fontSize = 10.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = StudioColors.AccentDim,
-                        selectedLabelColor     = Color.White,
-                        containerColor         = StudioColors.Card,
-                        labelColor             = StudioColors.TextMuted,
+                        selectedLabelColor = Color.White,
+                        containerColor = StudioColors.Card,
+                        labelColor = StudioColors.TextMuted,
                     ),
                 )
             }
             item {
                 FilterChip(
                     selected = false,
-                    onClick  = { showSaveDialog = true },
-                    label    = { Text("+ Save", fontSize = 10.sp) },
-                    colors   = FilterChipDefaults.filterChipColors(
+                    onClick = { showSaveDialog = true },
+                    label = { Text("+ Save", fontSize = 10.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
                         containerColor = StudioColors.Card,
-                        labelColor     = StudioColors.Accent,
+                        labelColor = StudioColors.Accent,
                     ),
                 )
             }
@@ -122,9 +125,9 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
 
         // ── Metering strip ────────────────────────────────────────────────────
         MeteringStrip(
-            inputDb  = levels.inputDb,
+            inputDb = levels.inputDb,
             outputDb = levels.outputDb,
-            grDb     = levels.gainReductionDb,
+            grDb = levels.gainReductionDb,
         )
 
         // Status row
@@ -166,7 +169,6 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
             }
         }
 
-
         // Monitor output toggle (hear yourself)
         if (status.isRunning) {
             Row(
@@ -193,8 +195,8 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
                     checked = monitoring,
                     onCheckedChange = { vm.setMonitoring(context, it) },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor   = Color.White,
-                        checkedTrackColor   = StudioColors.Accent,
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = StudioColors.Accent,
                         uncheckedTrackColor = StudioColors.Border,
                     ),
                 )
@@ -203,7 +205,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
 
         // ── Noise Gate ────────────────────────────────────────────────────────
         EffectCard(
-            title   = "Noise Gate",
+            title = "Noise Gate",
             enabled = gateState.enabled,
             onToggle = vm::setGateEnabled,
         ) {
@@ -219,7 +221,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
 
         // ── Equalizer ─────────────────────────────────────────────────────────
         EffectCard(
-            title   = "10-Band EQ",
+            title = "10-Band EQ",
             enabled = eqState.enabled,
             onToggle = vm::setEqEnabled,
         ) {
@@ -230,8 +232,8 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
             ) {
                 freqLabels.forEachIndexed { i, freq ->
                     EqBandFader(
-                        freq       = freq,
-                        gainDb     = eqState.bands.getOrElse(i) { 0f },
+                        freq = freq,
+                        gainDb = eqState.bands.getOrElse(i) { 0f },
                         onGainChange = { vm.setEqBand(i, it) },
                     )
                 }
@@ -239,27 +241,25 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
         }
 
         // ── Compressor ────────────────────────────────────────────────────────
+        // Changed from KnobWidget (small circular drag knobs) to ParamSlider,
+        // matching the Noise Gate section, for easier/more precise adjustment.
         EffectCard(
-            title   = "Compressor",
+            title = "Compressor",
             enabled = compState.enabled,
             onToggle = vm::setCompEnabled,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    KnobWidget("THRESH", compState.thresholdDb, vm::setCompThreshold,
-                        -60f..0f, unit = "dB")
-                    KnobWidget("RATIO", compState.ratio, vm::setCompRatio,
-                        1f..20f, unit = ":1")
-                    KnobWidget("ATTACK", compState.attackMs, vm::setCompAttack,
-                        0.1f..100f, unit = "ms")
-                    KnobWidget("RELEASE", compState.releaseMs, vm::setCompRelease,
-                        10f..1000f, unit = "ms")
-                    KnobWidget("MAKEUP", compState.makeupDb, vm::setCompMakeup,
-                        0f..24f, unit = "dB")
-                }
+                ParamSlider("Threshold", compState.thresholdDb, vm::setCompThreshold,
+                    -60f..0f, " dB")
+                ParamSlider("Ratio", compState.ratio, vm::setCompRatio,
+                    1f..20f, ":1", steps = 18)
+                ParamSlider("Attack", compState.attackMs, vm::setCompAttack,
+                    0.1f..100f, " ms")
+                ParamSlider("Release", compState.releaseMs, vm::setCompRelease,
+                    10f..1000f, " ms")
+                ParamSlider("Makeup", compState.makeupDb, vm::setCompMakeup,
+                    0f..24f, " dB")
+
                 // GR readout
                 val gr = levels.gainReductionDb
                 Text("GR: ${if (gr > 0.1f) "-%.1f dB".format(gr) else "0.0 dB"}",
@@ -269,7 +269,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
 
         // ── Reverb ────────────────────────────────────────────────────────────
         EffectCard(
-            title   = "Reverb",
+            title = "Reverb",
             enabled = reverbState.enabled,
             onToggle = vm::setReverbEnabled,
         ) {
@@ -282,7 +282,7 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
 
         // ── Pitch Shifter ─────────────────────────────────────────────────────
         EffectCard(
-            title   = "Pitch Shifter",
+            title = "Pitch Shifter",
             enabled = pitchState.enabled,
             onToggle = vm::setPitchEnabled,
         ) {
@@ -294,17 +294,18 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
         SectionLabel("Plugin Chain")
         pluginSlots.forEachIndexed { idx, slot ->
             PluginSlotCard(
-                slot     = slot,
+                slot = slot,
                 onToggle = { vm.togglePlugin(slot.id) },
                 onRemove = { vm.removePlugin(slot.id) },
-                onEdit   = { navController.navigate("plugin_editor/${slot.id}") },
+                onEdit = { navController.navigate("plugin_editor/${slot.id}") },
             )
         }
+
         // Add plugin FAB row
         OutlinedButton(
             onClick = { navController.navigate("plugin_browser") },
             modifier = Modifier.fillMaxWidth(),
-            border   = BorderStroke(1.dp, StudioColors.AccentDim),
+            border = BorderStroke(1.dp, StudioColors.AccentDim),
         ) {
             Icon(Icons.Default.Add, null, tint = StudioColors.Accent)
             Spacer(Modifier.width(6.dp))
@@ -318,9 +319,9 @@ fun MainScreen(navController: NavController, vm: AudioViewModel = hiltViewModel(
     if (showSaveDialog) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            containerColor   = StudioColors.Card,
-            title  = { Text("Save Preset", color = StudioColors.TextPrimary) },
-            text   = {
+            containerColor = StudioColors.Card,
+            title = { Text("Save Preset", color = StudioColors.TextPrimary) },
+            text = {
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
@@ -360,8 +361,8 @@ private fun StatusPill(text: String) {
 private fun VirtualMicBadge(tier: VirtualMicTier) {
     val color = Color(tier.badgeColorHex)
     Surface(
-        shape  = RoundedCornerShape(5.dp),
-        color  = color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(5.dp),
+        color = color.copy(alpha = 0.1f),
         border = BorderStroke(0.5.dp, color),
     ) {
         Text(
@@ -381,9 +382,9 @@ private fun PluginSlotCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(7.dp),
-        color    = StudioColors.Card,
-        border   = BorderStroke(
+        shape = RoundedCornerShape(7.dp),
+        color = StudioColors.Card,
+        border = BorderStroke(
             0.5.dp,
             if (slot.enabled) StudioColors.Border else StudioColors.Border.copy(alpha = 0.3f),
         ),

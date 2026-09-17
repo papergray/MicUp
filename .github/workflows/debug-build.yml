@@ -1,0 +1,80 @@
+name: Debug Build
+
+# Builds an unsigned debug APK on every push/PR to main, or on demand.
+# No signing keys required — this is for testing, not for release.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
+
+jobs:
+  build-debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive   # harmless if there are none; picks up any native/vendored deps
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install NDK 26 & CMake 3.22
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME" -name sdkmanager -type f 2>/dev/null | head -n 1)
+          fi
+          echo "Using sdkmanager at: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "ndk;26.1.10909125" "cmake;3.22.1"
+
+      # Reads the Gradle version this project actually expects from its own
+      # gradle-wrapper.properties file, instead of blindly using the newest
+      # Gradle release (which can be incompatible with older Kotlin/AGP plugins).
+      - name: Detect required Gradle version
+        id: gradle_version
+        run: |
+          PROP_FILE="gradle/wrapper/gradle-wrapper.properties"
+          VERSION=""
+          if [ -f "$PROP_FILE" ]; then
+            VERSION=$(grep -oE 'gradle-[0-9]+(\.[0-9]+)*-(bin|all)\.zip' "$PROP_FILE" | grep -oE '[0-9]+(\.[0-9]+)*' | head -n 1 || true)
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "No version found in $PROP_FILE, falling back to 8.9"
+            VERSION="8.9"
+          fi
+          echo "Using Gradle version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.gradle_version.outputs.version }}
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
+
+      - name: Locate APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found APK at: $APK_PATH"
+
+      - name: Upload debug APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: micup-debug-apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          retention-days: 14
